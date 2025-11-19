@@ -1,0 +1,14 @@
+yfinance
+pandas
+pandas-ta
+pydantic
+langchain
+langchain-openai
+streamlit
+langchain-groq
+tavily-python
+langgraph
+plotly
+numpy
+python-dotenv
+backtesting

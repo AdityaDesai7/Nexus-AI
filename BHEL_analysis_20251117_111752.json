@@ -1,0 +1,117 @@
+{
+  "stock": "BHEL",
+  "timestamp": "20251117_111752",
+  "total_articles": 4,
+  "sentiment_distribution": {
+    "positive": 3,
+    "negative": 0,
+    "neutral": 1
+  },
+  "signal": "🟢 STRONG BUY",
+  "articles": [
+    {
+      "title": "BHEL hits 52-week high, stock soars 18% in 10 days; Should you buy or hold? - Business Standard",
+      "url": "https://news.google.com/rss/articles/CBMi1AFBVV95cUxQZ0l5T3Y3YlZ2VkhPODNwQUU2Y3h4dU9NSW1aMEczamhzSkx2ejZDOFRHeGVwaUhoaVQ1VVpxOGthc2Z6RTR4UDF1V3FuZTJGQ0RlRWFrRnlqZzRwemFjN2xGSmNka3lxSEZzUW5zZHcwU0tuTV8taUs0TkpYOVdlbzQwZDhGVkgwcTJKbVh5eUM4dzdvOFZra0ZCNGxOMWRHa3NndEdaZHl6SVMtQmxSTFhia2JId2dnTzZ1TDdUd05TOUhoUHBVRFp6NFdqOU4tUDZVTNIB2gFBVV95cUxOUU56bG95aDJucEdBVHptTUpZSnlSNmx4ei02VzV5TzhoNU01U0g5cUNqUEg5RXp4T2s0eURrVERZUUNsYjNLLWRtSGRCbFkzQ3BiSHdlcE81RHlPYVAtV0k2R2g5Mmp3anVGNVBzRHNscUw2Nl9SQ1VXQUhXS29QME14X0ZvZV81Y2YxYkcwUjliSkZFT3JRbS13LUUzZ0g5NGVpenF5QTRlTmdLU3VtcGYxLWxMZHZIczZ3OUpMNHA5cURXaVVsM0xmel9KemdDRVN0cERmRjVGUQ?oc=5",
+      "source": "RSS Feed",
+      "content": "BHEL hits 52-week high, stock soars 18% in 10 days; Should you buy or hold? - Business Standard. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "summary": "BHEL hits 52-week high, stock soars 18% in 10 days; Should you buy or hold. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "analysis": {
+        "sentiment": "POSITIVE",
+        "confidence": 1.0,
+        "pos_count": 2,
+        "neg_count": 0,
+        "neu_count": 0,
+        "pos_keywords": [
+          [
+            "buy",
+            2
+          ]
+        ],
+        "neg_keywords": []
+      }
+    },
+    {
+      "title": "BHEL Outlook for the Week - Equitypandit",
+      "url": "https://news.google.com/rss/articles/CBMiZkFVX3lxTE0za0MzVnVBR2hMMjN6Sjl3R29oQlY4eVhrbUNqRTkyZmkyTDJhRnNqUjRNWXV1cTdhX1NvVkZHSUo1ZWwtd3BWXzA2TlpPa0N1elBtUU5pbkUwcU5MMzhkang2LVVKZw?oc=5",
+      "source": "RSS Feed",
+      "content": "BHEL Outlook for the Week - Equitypandit. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "summary": "BHEL Outlook for the Week - Equitypandit. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "analysis": {
+        "sentiment": "NEUTRAL",
+        "confidence": 0,
+        "pos_count": 0,
+        "neg_count": 0,
+        "neu_count": 0,
+        "pos_keywords": [],
+        "neg_keywords": []
+      }
+    },
+    {
+      "title": "Market Trading Guide: Buy Nykaa, BHEL and 3 more stocks on Tuesday for up to 20% gains - The Economic Times",
+      "url": "https://news.google.com/rss/articles/CBMi-wFBVV95cUxPNE9zUHlZRzZYaEd0Y0Z4V1ZhMFlTWkFFSTN4cFlxa2s1Mmtyb0pqVVcxdW5iVGlMRnNBX3Q0eW1sV0piMjVaX0NyazRRVWF1dHRhODVyUVItemVXWUpfWGp1SmhNNjFCRDdoUWt6cm9xb3hTQzZkaDBFRXlyX0t1dkxWOENyUFczVUpWLXUzZGZrWm5La2pVMU5ad2ZBRExzUWVYeTlHX0hkNmRTcWpNNEQ1dVBhUEtKR2s5bGRIN09BVEluMWxmM0ZZNVZGQlQ4VGtHMGRmZDduZC1lazJZTE04MWYyQmdDeDhzUlNpV0xSWUNyYUdNS05hcw?oc=5",
+      "source": "RSS Feed",
+      "content": "Market Trading Guide: Buy Nykaa, BHEL and 3 more stocks on Tuesday for up to 20% gains - The Economic Times. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "summary": "Market Trading Guide: Buy Nykaa, BHEL and 3 more stocks on Tuesday for up to 20% gains - The Economic Times. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "analysis": {
+        "sentiment": "POSITIVE",
+        "confidence": 1.0,
+        "pos_count": 4,
+        "neg_count": 0,
+        "neu_count": 0,
+        "pos_keywords": [
+          [
+            "gains",
+            2
+          ],
+          [
+            "buy",
+            2
+          ]
+        ],
+        "neg_keywords": []
+      }
+    },
+    {
+      "title": "Cipla surprises with strong earnings; L&T, BHEL ride on infra boom, says Anand Rathi’s Narendra Solanki",
+      "url": "https://economictimes.indiatimes.com/markets/expert-view/cipla-surprises-with-strong-earnings-lt-bhel-ride-on-infra-boom-says-anand-rathis-narendra-solanki/articleshow/124985033.cms",
+      "source": "Economic Times",
+      "content": "Listen to this article in summarized format Listen Loading... × × Subscribe to Unlock AI Briefing and Premium Content Subscribe Now What's Included Exclusive Stories Daily ePaper Access Smart Market Tools Curated Investment Ideas Ad-lite Experience Subscription ETMarkets.com Narendra Solanki , Head of Fundamental Research at Anand Rathi Shares , says infrastructure and construction stocks like L&T and BHEL remain strong bets amid rising government spending, while Cipla ’s results beat expectations despite management changes. However, Dr Reddy’s faces a key setback after regulatory hurdles delay a major drug launch. Cipla’s earnings beat estimates, but leadership change raises eyebrows Cipla reported better-than-expected quarterly results, driven by stronger revenue growth, says Narendra Solanki, Head of Fundamental Research at Anand Rathi Shares. “Numbers were better than expected — both on revenue and profit. The surprise, however, came from the sudden change in leadership,” he told ET Now. While the outgoing CEO was due for retirement next year, the timing of the announcement caught the market off guard. “We’ll have to wait and watch how the new management executes and what strategic changes they bring in,” Solanki added. Live Events You Might Also Like: Earnings recovery ahead: Quantum AMC’s Christy Mathai bets on banking, logistics, and pharma Despite the transition, the fundamental story remains intact, supported by steady margins and healthy US generics performance . L&T and BHEL: Strong order books, infrastructure tailwinds Solanki remains bullish on infrastructure and capital goods, particularly Larsen & Toubro (L&T) and BHEL, which have both posted solid earnings this quarter. “Government-led infrastructure spending continues to accelerate. Order awarding activity has picked up meaningfully compared to the first half of the year,” he said. He expects further momentum in the second half of FY26 as capital expenditure programs ramp up. “Macro fundamentals are improving, and we’re optimistic that the infrastructure theme will remain a strong structural play,” Solanki noted. You Might Also Like: Infra revival, metal rally, and pharma strength to drive next leg of market gains, says Anshul Saigal L&T’s record order book and execution strength, along with BHEL’s revival driven by energy transition projects, position them well for medium- to long-term growth, he added. Dr Reddy’s faces setback on GLP-1 opportunity Shares of Dr Reddy’s Laboratories fell nearly 4% after its much-anticipated GLP-1 drug launch faced regulatory hurdles in Canada. Solanki termed it a “major setback” for the pharma major. “The GLP-1 opportunity was expected to be a game-changer. The market had priced in at least a $100 million contribution by FY27,” he explained. With patent expiry approaching in early 2026, any delay could allow competitors to gain first-mover advantage. “If you’re not first to market post-patent expiry, you lose pricing power and market share rapidly,” Solanki cautioned. You Might Also Like: Indian pharma & healthcare sector saw $3.5 bn deals in Q3 2025: Grant Thornton Bharat He emphasized that investors should monitor how quickly the company resolves regulatory observations to recover lost ground. Market outlook: Macro stable, stock selection key Solanki remains constructive on India’s macro outlook, citing rising public capex, a stable rupee, and moderating inflation. “Markets are seeing sectoral churn, but the underlying fundamentals remain healthy. Investors should focus on stock-specific stories with earnings visibility,” he said. Add as a Reliable and Trusted News Source Add Now! (You can now subscribe to our ETMarkets WhatsApp channel ) Read More News on bhel cipla Cipla earnings report government infrastructure spending Dr Reddy’s drug launch setback L&T infrastructure projects Anand Rathi Shares US generics performance BHEL performance analysis narendra solanki (What's moving Sensex and Nifty Track latest market news , stock tips , Budget 2025 , Share Market on Budget 2025 and expert advice , on ETMarkets . Also, ETMarkets.com is now on Telegram. For fastest news alerts on financial markets, investment strategies and stocks alerts, subscribe to our Telegram feeds .) Subscribe to ET Prime and read the Economic Times ePaper Online.and Sensex Today . Top Trending Stocks: SBI Share Price , Axis Bank Share Price , HDFC Bank Share Price , Infosys Share Price , Wipro Share Price , NTPC Share Price ... more less (You can now subscribe to our ETMarkets WhatsApp channel ) Read More News on bhel cipla Cipla earnings report government infrastructure spending Dr Reddy’s drug launch setback L&T infrastructure projects Anand Rathi Shares US generics performance BHEL performance analysis narendra solanki (What's moving Sensex and Nifty Track latest market news , stock tips , Budget 2025 , Share Market on Budget 2025 and expert advice , on ETMarkets . Also, ETMarkets.com is now on Telegram. For fastest news alerts on financial markets, investment strategies and stocks alerts, subscribe to our Telegram feeds .) Subscribe to ET Prime and read the Economic Times ePaper Online.and Sensex Today . Top Trending Stocks: SBI Share Price , Axis Bank Share Price , HDFC Bank Share Price , Infosys Share Price , Wipro Share Price , NTPC Share Price ... more less Prime Exclusives Investment Ideas Stock Report Plus ePaper Wealth Edition Investors have burnt fingers in education cos. Will PhysicsWallah be different? IPO: Is Tenneco India with 3% revenue worth what Apollo paid for global ops? Nine years on, can this TVS-backed EV startup finally do an Ather? How DOMS turned pencil into a sword to end Camlin’s 100-year run Stock Radar: Breakout from descending triangle makes this insurance stock an attractive buy; check target & stop loss How will the market be in 2026? Watch out for what managements of these 26 companies say in the next 60 days 1 2 3 View all Stories",
+      "summary": "Listen to this article in summarized format Listen Loading. × × Subscribe to Unlock AI Briefing and Premium Content Subscribe Now What's Included Exclusive Stories Daily ePaper Access Smart Market Tools Curated Investment Ideas Ad-lite Experience Subscription ETMarkets. com Narendra Solanki , Head of Fundamental Research at Anand Rathi Shares , says infrastructure and construction stocks like L&T and BHEL remain strong bets amid rising government spending, while Cipla ’s results beat expectation...",
+      "analysis": {
+        "sentiment": "POSITIVE",
+        "confidence": 0.9473684210526315,
+        "pos_count": 37,
+        "neg_count": 1,
+        "neu_count": 3,
+        "pos_keywords": [
+          [
+            "earnings",
+            7
+          ],
+          [
+            "strong",
+            4
+          ],
+          [
+            "investment",
+            4
+          ],
+          [
+            "revenue",
+            3
+          ],
+          [
+            "growth",
+            2
+          ]
+        ],
+        "neg_keywords": [
+          [
+            "loss",
+            1
+          ]
+        ]
+      }
+    }
+  ]
+}
