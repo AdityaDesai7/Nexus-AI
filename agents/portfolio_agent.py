@@ -19,143 +19,259 @@
 
 
 
-import pandas as pd
-import numpy as np
-from typing import Dict, Tuple
-from models.simulation import Trade
+# import pandas as pd
+# import numpy as np
+# from typing import Dict, Tuple
+# from models.simulation import Trade
 
+
+# class PortfolioManagerAgent:
+#     """Autonomous portfolio management - NO LLM DEPENDENCY"""
+    
+#     def __init__(self, portfolio_value: float = 1000000):
+#         self.portfolio_value = portfolio_value
+#         self.max_position_pct = 0.10  # Max 10% per position
+#         self.min_position_pct = 0.01  # Min 1% per position
+    
+#     def decide(self, 
+#                ticker: str, 
+#                current_price: float,
+#                technical_signal: Dict,
+#                sentiment_signal: Dict = None,
+#                risk_metrics: Dict = None,
+#                portfolio_state: Dict = None) -> Tuple[str, int, Dict]:
+#         """
+#         Autonomous decision on position sizing based on signals
+        
+#         Args:
+#             ticker: Stock ticker
+#             current_price: Current stock price
+#             technical_signal: Signal from technical agent
+#             sentiment_signal: Signal from sentiment agent (optional)
+#             risk_metrics: Risk metrics from risk agent
+#             portfolio_state: Current portfolio state
+        
+#         Returns:
+#             (action, quantity, metadata)
+#         """
+        
+#         # Extract technical confidence
+#         tech_action = technical_signal.get('action', 'HOLD')
+#         tech_confidence = self._extract_confidence(technical_signal.get('recommendation', ''))
+        
+#         # Extract sentiment signal if available
+#         sentiment_confidence = 0
+#         if sentiment_signal:
+#             sentiment_action = sentiment_signal.get('action', 'HOLD')
+#             sentiment_confidence = sentiment_signal.get('confidence', 0)
+            
+#             # Adjust confidence based on sentiment agreement
+#             if tech_action == sentiment_action:
+#                 tech_confidence = min(90, tech_confidence + 5)  # Boost if aligned
+        
+#         # Get risk metrics
+#         position_size_pct = self._calculate_position_size(
+#             tech_confidence, 
+#             risk_metrics or {}
+#         )
+        
+#         # Determine action
+#         if tech_confidence < 30:
+#             return "HOLD", 0, {"reason": "Low confidence"}
+        
+#         if tech_action == "BUY":
+#             quantity = self._calculate_quantity_buy(current_price, position_size_pct)
+#             return "BUY", quantity, {
+#                 "confidence": tech_confidence,
+#                 "position_pct": position_size_pct,
+#                 "allocation": f"₹{quantity * current_price:,.0f}"
+#             }
+        
+#         elif tech_action == "SELL":
+#             quantity = self._calculate_quantity_sell(current_price, position_size_pct)
+#             return "SELL", quantity, {
+#                 "confidence": tech_confidence,
+#                 "position_pct": position_size_pct,
+#                 "allocation": f"₹{quantity * current_price:,.0f}"
+#             }
+        
+#         else:
+#             return "HOLD", 0, {"reason": "No clear signal"}
+    
+#     def _extract_confidence(self, recommendation_str: str) -> float:
+#         """Extract confidence percentage from recommendation string"""
+#         try:
+#             parts = recommendation_str.split("Confidence: ")
+#             if len(parts) > 1:
+#                 conf_str = parts[1].split("%")[0]
+#                 return float(conf_str)
+#         except:
+#             pass
+#         return 50.0
+    
+#     def _calculate_position_size(self, confidence: float, risk_metrics: Dict) -> float:
+#         """
+#         Calculate position size based on confidence and risk
+        
+#         Logic:
+#         - Low confidence (0-30%): 0% position
+#         - Medium confidence (30-60%): 1-5% position
+#         - High confidence (60-90%): 5-10% position
+#         - Very high confidence (>90%): 8-10% position
+#         """
+#         if confidence < 30:
+#             return 0.0
+#         elif confidence < 60:
+#             # Linear interpolation: 30% -> 1%, 60% -> 5%
+#             return 0.01 + (confidence - 30) / 30 * 0.04
+#         elif confidence < 90:
+#             # Linear interpolation: 60% -> 5%, 90% -> 10%
+#             return 0.05 + (confidence - 60) / 30 * 0.05
+#         else:
+#             # Very high confidence: 8-10%
+#             return min(0.10, 0.08 + (confidence - 90) / 10 * 0.02)
+    
+#     def _calculate_quantity_buy(self, current_price: float, position_pct: float) -> int:
+#         """Calculate quantity to buy"""
+#         allocation = self.portfolio_value * position_pct
+#         quantity = int(allocation / current_price)
+#         return max(1, quantity)  # Minimum 1 share
+    
+#     def _calculate_quantity_sell(self, current_price: float, position_pct: float) -> int:
+#         """Calculate quantity to sell (assume we have positions)"""
+#         allocation = self.portfolio_value * position_pct
+#         quantity = int(allocation / current_price)
+#         return max(1, quantity)
+    
+#     def get_allocation_metrics(self, 
+#                                action: str, 
+#                                quantity: int, 
+#                                current_price: float) -> Dict:
+#         """Get detailed allocation metrics"""
+#         allocation = quantity * current_price
+#         pct_of_portfolio = (allocation / self.portfolio_value) * 100
+        
+#         return {
+#             "action": action,
+#             "quantity": quantity,
+#             "price": current_price,
+#             "allocation": allocation,
+#             "allocation_pct": pct_of_portfolio,
+#             "remaining_capital": self.portfolio_value - allocation
+#         }
+
+
+
+# trading_bot/agents/portfolio_agent.py
+from typing import Dict, Tuple, Any
+import math
 
 class PortfolioManagerAgent:
-    """Autonomous portfolio management - NO LLM DEPENDENCY"""
-    
-    def __init__(self, portfolio_value: float = 1000000):
-        self.portfolio_value = portfolio_value
-        self.max_position_pct = 0.10  # Max 10% per position
-        self.min_position_pct = 0.01  # Min 1% per position
-    
-    def decide(self, 
-               ticker: str, 
+    """Pure logic portfolio manager with decide(...) method."""
+
+    def __init__(self, portfolio_value: float = 1_000_000):
+        self.portfolio_value = float(portfolio_value)
+        self.max_position_pct = 0.10
+        self.min_position_pct = 0.01
+
+    def _extract_confidence(self, tech_signal) -> float:
+        # tech_signal may be dict with 'confidence' or 'recommendation' string
+        if not tech_signal:
+            return 50.0
+        if isinstance(tech_signal, dict):
+            c = tech_signal.get("confidence") or tech_signal.get("confidence_pct")
+            if isinstance(c, (int, float)):
+                return float(c)
+            rec = tech_signal.get("recommendation") or tech_signal.get("action")
+            if isinstance(rec, str) and "confidence" in rec:
+                try:
+                    return float(rec.split("Confidence:")[1].split("%")[0].strip())
+                except Exception:
+                    pass
+        if isinstance(tech_signal, str):
+            if "confidence" in tech_signal:
+                try:
+                    return float(tech_signal.split("Confidence:")[1].split("%")[0].strip())
+                except Exception:
+                    pass
+        return 50.0
+
+    def _calc_position_pct(self, confidence: float, risk_metrics: Dict) -> float:
+        if confidence < 30:
+            return 0.0
+        if confidence < 60:
+            return 0.01 + (confidence - 30) / 30 * 0.04
+        if confidence < 90:
+            return 0.05 + (confidence - 60) / 30 * 0.05
+        return 0.10
+
+    def _quantity_from_price(self, allocation: float, price: float) -> int:
+        if price <= 0:
+            return 0
+        qty = int(allocation // price)
+        return max(0, qty)
+
+    def decide(self,
+               ticker: str,
                current_price: float,
                technical_signal: Dict,
                sentiment_signal: Dict = None,
                risk_metrics: Dict = None,
                portfolio_state: Dict = None) -> Tuple[str, int, Dict]:
         """
-        Autonomous decision on position sizing based on signals
-        
-        Args:
-            ticker: Stock ticker
-            current_price: Current stock price
-            technical_signal: Signal from technical agent
-            sentiment_signal: Signal from sentiment agent (optional)
-            risk_metrics: Risk metrics from risk agent
-            portfolio_state: Current portfolio state
-        
-        Returns:
-            (action, quantity, metadata)
+        Returns: (action: str, quantity: int, metadata: dict)
         """
-        
-        # Extract technical confidence
-        tech_action = technical_signal.get('action', 'HOLD')
-        tech_confidence = self._extract_confidence(technical_signal.get('recommendation', ''))
-        
-        # Extract sentiment signal if available
-        sentiment_confidence = 0
-        if sentiment_signal:
-            sentiment_action = sentiment_signal.get('action', 'HOLD')
-            sentiment_confidence = sentiment_signal.get('confidence', 0)
-            
-            # Adjust confidence based on sentiment agreement
-            if tech_action == sentiment_action:
-                tech_confidence = min(90, tech_confidence + 5)  # Boost if aligned
-        
-        # Get risk metrics
-        position_size_pct = self._calculate_position_size(
-            tech_confidence, 
-            risk_metrics or {}
-        )
-        
-        # Determine action
-        if tech_confidence < 30:
-            return "HOLD", 0, {"reason": "Low confidence"}
-        
+
+        tech_action = "HOLD"
+        if isinstance(technical_signal, dict):
+            tech_action = technical_signal.get("action") or technical_signal.get("recommendation") or tech_action
+        elif isinstance(technical_signal, str):
+            # very simple parse
+            if "BUY" in technical_signal.upper():
+                tech_action = "BUY"
+            elif "SELL" in technical_signal.upper():
+                tech_action = "SELL"
+
+        confidence = self._extract_confidence(technical_signal)
+        position_pct = self._calc_position_pct(confidence, risk_metrics or {})
+
+        # reduce position size if risk level is HIGH
+        if isinstance(risk_metrics, dict):
+            if risk_metrics.get("risk_level") in ("HIGH", "VERY_HIGH"):
+                position_pct = min(position_pct, 0.02)
+
+        allocation = self.portfolio_value * position_pct
+        qty = self._quantity_from_price(allocation, float(current_price) if current_price else 0)
+
+        metadata = {
+            "confidence": confidence,
+            "position_pct": round(position_pct, 4),
+            "allocation_value": round(allocation, 2),
+            "reason": ""
+        }
+
+        if confidence < 30 or tech_action == "HOLD" or qty <= 0:
+            metadata["reason"] = "Low confidence or no actionable signal"
+            return "HOLD", 0, metadata
+
         if tech_action == "BUY":
-            quantity = self._calculate_quantity_buy(current_price, position_size_pct)
-            return "BUY", quantity, {
-                "confidence": tech_confidence,
-                "position_pct": position_size_pct,
-                "allocation": f"₹{quantity * current_price:,.0f}"
-            }
-        
+            metadata["reason"] = "Technical BUY"
+            return "BUY", qty, metadata
         elif tech_action == "SELL":
-            quantity = self._calculate_quantity_sell(current_price, position_size_pct)
-            return "SELL", quantity, {
-                "confidence": tech_confidence,
-                "position_pct": position_size_pct,
-                "allocation": f"₹{quantity * current_price:,.0f}"
-            }
-        
+            metadata["reason"] = "Technical SELL"
+            return "SELL", qty, metadata
         else:
-            return "HOLD", 0, {"reason": "No clear signal"}
-    
-    def _extract_confidence(self, recommendation_str: str) -> float:
-        """Extract confidence percentage from recommendation string"""
-        try:
-            parts = recommendation_str.split("Confidence: ")
-            if len(parts) > 1:
-                conf_str = parts[1].split("%")[0]
-                return float(conf_str)
-        except:
-            pass
-        return 50.0
-    
-    def _calculate_position_size(self, confidence: float, risk_metrics: Dict) -> float:
-        """
-        Calculate position size based on confidence and risk
-        
-        Logic:
-        - Low confidence (0-30%): 0% position
-        - Medium confidence (30-60%): 1-5% position
-        - High confidence (60-90%): 5-10% position
-        - Very high confidence (>90%): 8-10% position
-        """
-        if confidence < 30:
-            return 0.0
-        elif confidence < 60:
-            # Linear interpolation: 30% -> 1%, 60% -> 5%
-            return 0.01 + (confidence - 30) / 30 * 0.04
-        elif confidence < 90:
-            # Linear interpolation: 60% -> 5%, 90% -> 10%
-            return 0.05 + (confidence - 60) / 30 * 0.05
-        else:
-            # Very high confidence: 8-10%
-            return min(0.10, 0.08 + (confidence - 90) / 10 * 0.02)
-    
-    def _calculate_quantity_buy(self, current_price: float, position_pct: float) -> int:
-        """Calculate quantity to buy"""
-        allocation = self.portfolio_value * position_pct
-        quantity = int(allocation / current_price)
-        return max(1, quantity)  # Minimum 1 share
-    
-    def _calculate_quantity_sell(self, current_price: float, position_pct: float) -> int:
-        """Calculate quantity to sell (assume we have positions)"""
-        allocation = self.portfolio_value * position_pct
-        quantity = int(allocation / current_price)
-        return max(1, quantity)
-    
-    def get_allocation_metrics(self, 
-                               action: str, 
-                               quantity: int, 
-                               current_price: float) -> Dict:
-        """Get detailed allocation metrics"""
+            metadata["reason"] = "Unrecognized action"
+            return "HOLD", 0, metadata
+
+    def get_allocation_metrics(self, action: str, quantity: int, current_price: float) -> Dict[str, Any]:
         allocation = quantity * current_price
-        pct_of_portfolio = (allocation / self.portfolio_value) * 100
-        
+        pct = (allocation / self.portfolio_value) * 100 if self.portfolio_value > 0 else 0
         return {
             "action": action,
             "quantity": quantity,
             "price": current_price,
             "allocation": allocation,
-            "allocation_pct": pct_of_portfolio,
-            "remaining_capital": self.portfolio_value - allocation
+            "allocation_pct": round(pct, 3),
+            "remaining_capital": round(self.portfolio_value - allocation, 2)
         }
