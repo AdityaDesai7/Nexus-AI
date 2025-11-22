@@ -12,3 +12,14 @@ plotly
 numpy
 python-dotenv
 backtesting
+matpotlib
+transformers 
+torch 
+streamlit 
+yfinance 
+pandas 
+numpy 
+plotly 
+requests 
+beautifulsoup4 
+feedparser

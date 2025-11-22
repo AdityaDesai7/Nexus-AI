@@ -1,0 +1,183 @@
+{
+  "stock": "TCS",
+  "timestamp": "20251121_164831",
+  "total_articles": 6,
+  "sentiment_distribution": {
+    "positive": 4,
+    "negative": 0,
+    "neutral": 2
+  },
+  "signal": "🟢 STRONG BUY",
+  "articles": [
+    {
+      "title": "TCS Share Price Highlights: TCS Stock Price History - The Economic Times",
+      "url": "https://news.google.com/rss/articles/CBMi2wFBVV95cUxOSVVuUzVVY3pOeEliY3pYWVVEVW1ZLVY0c0x1NjlQRGE2UFZFdHpLbG52c3hoWGh1UmVsZFpxZE1VTF9DTHREY21oNDd3ZVM2dWpRandfNkdtcHlKcEJmZk9kNkxtUnptWXVFcjk3OHdCQ2dCRGFFS2VCYXAxVDJGUllwSWNCbjQ5MnU2aUVqX05YMTMzeWlGWXhXaEQ1X19MSWdvT2FOUEFOS1JtWXlzalJ2bEZ4SEUyUzVQNW14U2E3Z25FX0RzYTMtMmRLdWZLQ0dxVG5iRzNvOXfSAeABQVVfeXFMT0c4d1NfTlFPc2pSRlFEN3FkVEtPOGNZSUdvVHVLb1pVMHNBYXZMdlNHeXdneUhKR0UtRTh5Znl5VDhBczdrM1JkTWR0TDVfSDJKSGsxYlNzU2d6WFhkUHBYNW44SzBLckhrWkZoY2dsWE94aVhiTy1BWDdmaXBldlJHdDlZNE9xdW8zTFhtenhXb0pqU0lOcUdRSXRPa3l3Q2N1VVJOOWZzN09jaTdYZWtPVzRxRWpNTURvbFJWRmY5VURwUXFvVWcyS1ZTZThPSFBMSjVjalVQRVVlMFVySGw?oc=5",
+      "source": "RSS Feed",
+      "content": "TCS Share Price Highlights: TCS Stock Price History - The Economic Times. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "summary": "TCS Share Price Highlights: TCS Stock Price History - The Economic Times. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "analysis": {
+        "sentiment": "NEUTRAL",
+        "confidence": 0,
+        "pos_count": 0,
+        "neg_count": 0,
+        "neu_count": 0,
+        "pos_keywords": [],
+        "neg_keywords": []
+      }
+    },
+    {
+      "title": "TCS stock rises 0.6% on $1-billion TPG deal; brokerages positive on lower equity burden, HyperVault... - Moneycontrol",
+      "url": "https://news.google.com/rss/articles/CBMi_wFBVV95cUxNcUljRjhpNURXWG5KdHBwTXRsNUVoV1N3bGZfbDVRRzZhQ2FnU05fU21tZE5FZFQzaTlZZ1hUdjZnazEwZTE4NS1DalduYWgzeGtQM3lFSmdrNmp2SkxQNFg0bUVNVmtsbU1iR0Vnc0JlMzNGT1ZYRWtOV3ZzYS1FVmY0X1NiUmVoZlpGLTgwUGdhRXBPZTNZdHUxcmFiWlpyMFhjd1F0eU1hNXZUeHhoclBTNFBYQ2ZKNkFvblZuUk93VFhCZXhvQnFKb2sxZlZRLXd0VEZjX19rNHplX2haN3loRVdSbklCV1VjSnlLbDdYYjk5Mk0wbV85ekFUMlHSAYQCQVVfeXFMTU9EZk1nb29PMnpVWGR5S3VyS1U4TGpBbWUwZHZYMDlkUzlBQmxERnhNVm1WZ2Y4Z3c4elQ1dm1KcER2OEppOEVxcUdFRVBiVEtpRjhYY3NpUUZVZ3ctR3oyM0JjWDNKSGFGejNZX0tXY0RhV0o2bExIZ3AxMEl2RUVWdDN3aE5faFZKOEJtT1Z3TWttMlpyUGNNbWlYTTB3NHpOMUVpeTFpM3NlVEhpTHhYbTBtcXBlSER6aEw1VTB0NW52alN4QVdxWnlEYVF0aC1tRXdDbXlrVGNMYWJ0cUE3RHNONGhieXVDWEd2Y3YweUg3SmtxWTliSUllVFhVVTk2U1g?oc=5",
+      "source": "RSS Feed",
+      "content": "TCS stock rises 0.6% on $1-billion TPG deal; brokerages positive on lower equity burden, HyperVault... - Moneycontrol. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "summary": "6% on $1-billion TPG deal; brokerages positive on lower equity burden, HyperVault. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "analysis": {
+        "sentiment": "POSITIVE",
+        "confidence": 1.0,
+        "pos_count": 4,
+        "neg_count": 0,
+        "neu_count": 0,
+        "pos_keywords": [
+          [
+            "positive",
+            2
+          ],
+          [
+            "deal",
+            2
+          ]
+        ],
+        "neg_keywords": []
+      }
+    },
+    {
+      "title": "TCS, Amber Ent top 'Buy' stocks today? Here's what makes them bullish - Business Standard",
+      "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxNazNjbTFkbWExbml0QzNpUlhYWE0xWk5Famw1dWxiT2x1YjBweVBmTDVFYXM3V0VYaHViRlNkY3pTalZxaFhOZkM3TTJZMnVxMkkydTRXaVJUU1VmOTZBS1ppMXB2amlPVzVFaTVMZEFXTUxuYnFvZURZTjNPN1pESlNJaTBjaTEzSEZGQ195emJfSXN1YjN0SmMwdW5EQXEtYnI4NGxwRW4xSE5zeTRNdDQ1ZVhJel8tT3Njek12LVFfcG0tY3lvX0dPZ2vSAdIBQVVfeXFMTXY4SENxN0R4cHd4QUxaN1ZtREFxakE5dl90SU9QamVCbEFWb3hxeVJlLW5sUWc5d09KdlRCWFdUVjZSemNhaFA5M2t4OS1qTVRmbFozb3BEZWdkaWE5QmtkMlpkTnhCWm5ESHpvWldsc3g5OFEwVUNrcjNVVDh5NHRrTlJiZXpVbnJkYS04MjRWUF9MMzVKSUVlNTRuQjVSVXpLS1Jib3N1dXBQemhnT0lxNHU2MzFDOUh4bVJydW1PMUdlS3RYelQ3OVFHYUxfamhR?oc=5",
+      "source": "RSS Feed",
+      "content": "TCS, Amber Ent top 'Buy' stocks today? Here's what makes them bullish - Business Standard. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "summary": "TCS, Amber Ent top 'Buy' stocks today. Here's what makes them bullish - Business Standard. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "analysis": {
+        "sentiment": "POSITIVE",
+        "confidence": 1.0,
+        "pos_count": 4,
+        "neg_count": 0,
+        "neu_count": 0,
+        "pos_keywords": [
+          [
+            "bullish",
+            2
+          ],
+          [
+            "buy",
+            2
+          ]
+        ],
+        "neg_keywords": []
+      }
+    },
+    {
+      "title": "TCS shares higher: To invest Rs 18,000 crore jointly with TPG – What next for investors - financialexpress.com",
+      "url": "https://news.google.com/rss/articles/CBMizAFBVV95cUxQa05YMkxPV1dnX2Fxb1k3SndmNXViemROemE5eDlTTWhTRjBBY3U2cEFrNGxjTU5FdjBIRHhtSm10OWt6T3M2SVdKNHgwM3BGOV82QjdlMk1CZGJuQXdjbHV4TWFnOG9iYTVQZ054Z2ZZaEx3Z2xZWDBsUFFhSjJKZ3dZLUJuRFhoSG5SbkVLaS1uRGVFV3A4OTUzcDFuRElhR2ZKY3ZkYXpkU0VJWFV5anpFRDhtSEpPU284VzljQU95ck16angxTDk5NmfSAdMBQVVfeXFMTmlNM0dHTkdJX184clJBSWdTbDJqeTdGeFZvR2N4ZktRNVMxMXoxenhzc3lkRkUxLVlrMXBjZjhGd3VnUllDV1pnNEhVMVdRU25yaDdzdnQxUDBKWl9DOThRdVpxOFlZZUFyWEFnSHRRSk9UZ2Y2RjVEclBtZ3JDWl9SZDVxeHFHblFJeDBlS2RiLTRWQUpkSlVGYTVQazloQVR5MWF1c3dFUkdqaW1ZTkh6QjNZWEtFaUJFMDc4Vlh3cVp4Z1ZMdnU5VkpJVWNUbFdDUQ?oc=5",
+      "source": "RSS Feed",
+      "content": "TCS shares higher: To invest Rs 18,000 crore jointly with TPG – What next for investors - financialexpress.com. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "summary": "TCS shares higher: To invest Rs 18,000 crore jointly with TPG – What next for investors - financialexpress. Comprehensive, up-to-date news coverage, aggregated from sources all over the world by Google News.",
+      "analysis": {
+        "sentiment": "NEUTRAL",
+        "confidence": 0,
+        "pos_count": 0,
+        "neg_count": 0,
+        "neu_count": 0,
+        "pos_keywords": [],
+        "neg_keywords": []
+      }
+    },
+    {
+      "title": "Stocks in news: TCS, Groww, RIL, PVR Inox, JSW Energy",
+      "url": "https://economictimes.indiatimes.com/markets/stocks/news/stocks-in-news-tcs-groww-ril-pvr-inox-jsw-energy/articleshow/125468190.cms",
+      "source": "Economic Times",
+      "content": "Listen to this article in summarized format Listen Loading... × × Subscribe to Unlock AI Briefing and Premium Content Subscribe Now What's Included Exclusive Stories Daily ePaper Access Smart Market Tools Curated Investment Ideas Ad-lite Experience Subscription Agencies The group's auto sector had clocked a consolidated revenue of Rs 90,825 crore in FY25, growing 3.2 times from FY20, it said in a latest regulatory filing. Markets traded firm on Wednesday and gained nearly half a percent, resuming their upward trajectory after a brief consolidation phase. With rotational buying visible across major heavyweights, analysts expect the ongoing uptrend to remain intact, with the Nifty poised to attempt a fresh record high soon and then inch towards 26,500 level. In today's trade, shares of TCS , Groww , RIL , PVR Inox , JSW Energy among others will be in focus due to various news developments. TCS Tata Consultancy Services and private equity firm TPG will form a joint venture to develop AI data centres, TCS said, with both partners set to invest a total of Rs 18000 crore ($2.03 billion) in equity. The capital will be invested in tranches in the JV, called HyperVault AI Data Centre, over the next few years. The companies also aim to raise $4.5-$5 billion through debt, TCS added, without providing details on the number or location of the planned data centres. Groww Groww will report its second quarter earnings today, making this its first financial announcement since the stock listed earlier this month. The market has been on a roller-coaster with the counter -- the shares jumped almost 94% in the first few sessions, before sliding more than 18% in the days that followed. As volatility stays high, all eyes are now on the numbers and the management commentary that will set the tone for the coming quarters. Live Events Catch all the live stock market action here RIL Reliance Industries said that it has halted the import of Russian oil for processing at its only-for-export refinery in Jamnagar, Gujarat, as the company moves to comply with European Union sanctions. India's biggest oil refiner added that exports from the same refinery will be entirely made from non-Russian oil starting December 1. PVR Inox Leading multiplex operator PVR Inox would add 100 screens in the current fiscal, though 10-15 non-performing screens may be shut after a review, its Executive Director Sanjeev Kumar Bijli said. Although PVR Inox's 60% of screen additions are coming from its existing top markets, it is also looking at smaller markets, with affordable ticket pricing of Rs 150-200. JSW Energy JSW Energy has secured the approval of the creditors of Raigarh Champa Rail Infrastructure for its proposal to acquire the debt-laden entity currently under the insolvency process. JSW Energy acquired KSK Mahanadi Power Company Ltd (KMPCL), a 3,600 MW thermal power plant in Chhattisgarh, for Rs 16,084 crore through the insolvency process, in March this year. Ashok Leyland Hinduja group flagship Ashok Leyland is gearing up to expand its diesel truck range as it remains optimistic for industry growth in the rest of the fiscal, according to company's MD and CEO Shenu Agarwal. He noted that the commercial vehicle major is working on improving its R&D resources to help it reduce the time to market and respond quickly to the changing market and regulatory requirements. M&M Mahindra is aiming for an eight-fold growth in the consolidated revenue of its auto sector by FY30, as the auto giant continues to bet big on SUVs and light commercial vehicles. The group's auto sector had clocked a consolidated revenue of Rs 90,825 crore in FY25, growing 3.2 times from FY20, it said in a latest regulatory filing. Add as a Reliable and Trusted News Source Add Now! (You can now subscribe to our ETMarkets WhatsApp channel ) Read More News on groww jsw energy pvr inox tcs ashok leyland ril Stocks in news TCS Reliance Industries Groww (What's moving Sensex and Nifty Track latest market news , stock tips , Budget 2025 , Share Market on Budget 2025 and expert advice , on ETMarkets . Also, ETMarkets.com is now on Telegram. For fastest news alerts on financial markets, investment strategies and stocks alerts, subscribe to our Telegram feeds .) Subscribe to ET Prime and read the Economic Times ePaper Online.and Sensex Today . Top Trending Stocks: SBI Share Price , Axis Bank Share Price , HDFC Bank Share Price , Infosys Share Price , Wipro Share Price , NTPC Share Price ... more less (You can now subscribe to our ETMarkets WhatsApp channel ) Read More News on groww jsw energy pvr inox tcs ashok leyland ril Stocks in news TCS Reliance Industries Groww (What's moving Sensex and Nifty Track latest market news , stock tips , Budget 2025 , Share Market on Budget 2025 and expert advice , on ETMarkets . Also, ETMarkets.com is now on Telegram. For fastest news alerts on financial markets, investment strategies and stocks alerts, subscribe to our Telegram feeds .) Subscribe to ET Prime and read the Economic Times ePaper Online.and Sensex Today . Top Trending Stocks: SBI Share Price , Axis Bank Share Price , HDFC Bank Share Price , Infosys Share Price , Wipro Share Price , NTPC Share Price ... more less Prime Exclusives Investment Ideas Stock Report Plus ePaper Wealth Edition With consumers in mind, India banned rice exports. What will it do for farmers now? Should govt give up its appellate power over RBI to a SAT-like tribunal? From canals to Formula 1 track to prison: How UP's best business house crumbled Last 5 IPO boom cycles ended with market bust, what’s in store for 2026? Stock Radar: This Sensex stock hits fresh record highs in November; will the rally continue or time to book profits? Buy, Sell or Hold: ICICI Securities maintains Hold on NSDL; Motilal Oswal maintains buy on L&T 1 2 3 View all Stories",
+      "summary": "Listen to this article in summarized format Listen Loading. × × Subscribe to Unlock AI Briefing and Premium Content Subscribe Now What's Included Exclusive Stories Daily ePaper Access Smart Market Tools Curated Investment Ideas Ad-lite Experience Subscription Agencies The group's auto sector had clocked a consolidated revenue of Rs 90,825 crore in FY25, growing 3. 2 times from FY20, it said in a latest regulatory filing.",
+      "analysis": {
+        "sentiment": "POSITIVE",
+        "confidence": 0.8888888888888888,
+        "pos_count": 17,
+        "neg_count": 1,
+        "neu_count": 6,
+        "pos_keywords": [
+          [
+            "investment",
+            4
+          ],
+          [
+            "revenue",
+            3
+          ],
+          [
+            "growth",
+            2
+          ],
+          [
+            "buy",
+            2
+          ],
+          [
+            "record",
+            2
+          ]
+        ],
+        "neg_keywords": [
+          [
+            "sell",
+            1
+          ]
+        ]
+      }
+    },
+    {
+      "title": "ET Exclusive: TCS looks to rope in TPG for $2 billion AI data centre JV",
+      "url": "https://economictimes.indiatimes.com/tech/technology/tcs-looks-to-rope-in-tpg-for-2-billion-ai-data-centre-jv/articleshow/125458373.cms",
+      "source": "Economic Times",
+      "content": "Synopsis Tata Consultancy Services is forming a multi-billion dollar joint venture with TPG to build AI and Sovereign Data Centers, marking a strategic shift towards a capex-heavy model. This ambitious project aims to establish TCS as a major player in the data center space, investing significantly to meet growing demand. Listen to this article in summarized format Listen Agencies TCS chairman N Chandrasekaran with TPG executive chairman Jim Coulter India’s largest software exporter Tata Consultancy Services ( TCS ) is set to form a multi-billion dollar joint venture with private equity group TPG to create multiple AI and Sovereign Data Centers as the Tata Group flagship looks to accelerate its efforts towards becoming “the world’s largest AI-led technology services firm,” said people in the know. This would be a strategic pivot for the IT firm that has historically pursued a capex-light, organic growth business model. Together TCS and TPG are planning to invest around $2 billion of equity as alliance partners in HyperVault AI Data Centre Ltd – incorporated as a wholly owned subsidiary of the technology company in late October. TCS will be the majority partner in the JV with 51% stake, according to officials of the company in condition of anonymity, as the talks are still in private domain. The residual $4.5-$5 billion will be raised through debt over time, they added. Both sides are expected to sign a formal agreement by this weekend, possibly as early as Thursday. This will be the third time that the US buyout group will be partnering with India’s largest conglomerate after Tata Motors EV arm and Tata Technologies . This will also be the first time cash rich TCS, will be taking external equity from a PE firm as well as external debt. Last month, TCS announced its plan to make a foray into the data centre space with an aim to build up to 1.2 GW of capacity, which will entail $6.5-$7 billion in investments. The company had said this will be made possible through partial equity investments from financial investors and funding through debt, according to the company’s management. It has so far not disclosed the identity of its financial partners. The new business unit led by a separate management will operate as a co-location data centre provider offering services to hyperscalers, Indian enterprises and government entities along with Tata group companies, said the company’s management. The project will require five-seven years for complete build out and revenue could start kicking in over the next 18-24 months. To put the scale of TCS’ project in context, 1.2 Gigawatt is the entire combined capacity of India’s existing data centres. However, this is expected to grow multifold reaching 9 Gigawatt in the next 5-7 years attracting capex investments of $50-$95 billion as competition heats up in the space, market forecasts suggest. The announcement however triggered polarising views from investors and analysts, some of whom expressed apprehensions over the diversification which they saw as having limited overlaps with its core IT services and potential pressure on returns. TCS's return on equity (ROE) stood at 51% and return on invested capital (ROIC) at over 80% in FY25, but the shift to a capex-heavy model may weigh on these metrics. The TCS stock had also reacted negatively, dropping 1.5% following the public announcement. \"We have set a target of 1 GW. We will be doing it in phases. We expect to do 1 GW in 5-7 years,\" TCS' chief executive K Krithivasan said at an investor call after the company announced its September quarter earnings. As per the company's calculations, every 150 MW will entail an investment of $1 billion, which translates into over $6.5 billion for the overall capacity building. Samir Sekhsaria, TCS' chief financial officer said revenues from the data centre business will start accruing in 18-24 months' time. India’s largest software services firm is confronting one of its most significant transitions yet, as it seeks to pivot its traditional, human-led services model to stay relevant amid AI disruption. For the first time, TCS laid off 1%, or 6,000, of its around 600,000-strong workforce during the last quarter as part of its larger plans to reduce its headcount by 2% in this financial year. This, combined with voluntary and involuntary attrition, TCS’ workforce declined by 19,755 on a net basis in July-September, its largest quarterly decline ever. TPG was unavailable for comment. Mails sent to TCS spokesperson also did not generate an immediate response. Data Centre Gold Rush The Tata Group would be the latest among deep pocketed Indian business groups to make a big entry and would pit them directly against leading co-location providers such as Reliance Industries , AdaniConnex, Bharti Airtel’s Nxtra Data, NTT Global, Sify Technologies and CtrlS Datacenters. Last month, Adani Enterprises and Alphabet’s Google said they will invest $15 billion over the next five years to develop a gigawatt-scale data center hub in Andhra Pradesh. AdaniConneX, a joint venture between the Adani Group and data center operator EdgeConneX, will undertake the project, which will be supported by a subsea cable network and renewable energy facilities. In August, Reliance Industries signed deals with Meta and Google to develop AI platforms and announced plans for a gigawatt-scale data center in the western state of Gujarat. ET on November 14 reported Reliance is also planning to set up a 1 GW data centre in Andhra Pradesh, a twin of its facility that is coming up in Jamnagar. Even then these multi-billion dollar initiatives are a fraction of what the big tech titans — Meta, Microsoft, Amazon and Google — are spending globally, with their combined annual capex projected to exceed $400 billion in 2026 alone. Add as a Reliable and Trusted News Source Add Now! Read more news on reliance industries tcs TCS Tata Consulting Services data centre India data centre AI TPG tata motors reliance tata technologies adani enterprises tata consultancy services (Catch all the Technology News News , and Latest News Updates on The Economic Times .) ...more Add Comment Elevate your knowledge and leadership skills at a cost cheaper than your daily tea. With consumers in mind, India banned rice exports. What will it do for farmers now? Should govt give up its appellate power over RBI to a SAT-like tribunal? From canals to Formula 1 track to prison: How UP's best business house crumbled Last 5 IPO boom cycles ended with market bust, what’s in store for 2026? Stock Radar: This Sensex stock hits fresh record highs in November; will the rally continue or time to book profits? Buy, Sell or Hold: ICICI Securities maintains Hold on NSDL; Motilal Oswal maintains buy on L&T For investors focused on a strong long-term portfolio: 5 large-caps from different sectors with upside potential of more than 25% Weekly Top Picks: These stocks scored 10 on 10 on Stock Reports Plus Subscribe Now",
+      "summary": "Synopsis Tata Consultancy Services is forming a multi-billion dollar joint venture with TPG to build AI and Sovereign Data Centers, marking a strategic shift towards a capex-heavy model. This ambitious project aims to establish TCS as a major player in the data center space, investing significantly to meet growing demand. Listen to this article in summarized format Listen Agencies TCS chairman N Chandrasekaran with TPG executive chairman Jim Coulter India’s largest software exporter Tata Consult...",
+      "analysis": {
+        "sentiment": "POSITIVE",
+        "confidence": 0.75,
+        "pos_count": 14,
+        "neg_count": 2,
+        "neu_count": 21,
+        "pos_keywords": [
+          [
+            "strong",
+            2
+          ],
+          [
+            "buy",
+            2
+          ],
+          [
+            "potential",
+            2
+          ],
+          [
+            "growth",
+            1
+          ],
+          [
+            "rally",
+            1
+          ]
+        ],
+        "neg_keywords": [
+          [
+            "decline",
+            1
+          ],
+          [
+            "sell",
+            1
+          ]
+        ]
+      }
+    }
+  ]
+}

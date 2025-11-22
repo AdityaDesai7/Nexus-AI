@@ -349,58 +349,58 @@
 #         return summary
 
 # trading_bot/agents/debate_agent.py
+# trading_bot/agents/debate_agent.py
+
+
+
 from typing import Dict, Any
-import pandas as pd
-import numpy as np
 
 class DebateAgent:
     """
-    Pure logic debate agent. Method: debate(...)
-    Produces bull_case, bear_case, consensus.
+    Hybrid Debate Agent:
+    - Logic scoring (safe, numeric)
+    - LLM summary using Groq (safe wrapper)
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, llm=None):
+        self.llm = llm
 
     @staticmethod
     def _extract_float(d, key, default=0.0):
         try:
             return float(d.get(key, default))
-        except Exception:
+        except:
             return default
 
-    def debate(self, ticker: str, technical_result: Dict, risk_metrics: Dict, price_data=None, sentiment_score: float = 50.0) -> Dict[str, Any]:
-        # Defensive conversions
-        if isinstance(price_data, dict) and "df" in price_data:
-            price_df = price_data["df"]
-        else:
-            price_df = price_data
-
-        # derive simple bull/bear evidence scores
+    # -------------------------- LOGIC SCORING --------------------------
+    def _score_logic(self, ticker, technical_result, risk_metrics, price_df, sentiment_score):
         bull = 0
         bear = 0
         bull_args = []
         bear_args = []
 
-        # technical_result typically contains action/confidence and rsi/macd etc.
+        # Technical analysis
         if technical_result:
             action = str(technical_result.get("action", "")).upper()
             conf = float(technical_result.get("confidence", 50))
             rsi = self._extract_float(technical_result, "rsi", 50)
             macd = self._extract_float(technical_result, "macd", 0)
             macd_signal = self._extract_float(technical_result, "macd_signal", 0)
+
             if action == "BUY":
                 bull += conf * 0.6
-                bull_args.append(f"Technical BUY ({conf:.0f}%)")
+                bull_args.append(f"Technical BUY signal ({conf}%)")
             elif action == "SELL":
                 bear += conf * 0.6
-                bear_args.append(f"Technical SELL ({conf:.0f}%)")
+                bear_args.append(f"Technical SELL signal ({conf}%)")
+
             if rsi < 30:
                 bull += 10
-                bull_args.append(f"RSI oversold ({rsi:.1f})")
+                bull_args.append(f"RSI oversold ({rsi})")
             if rsi > 70:
                 bear += 10
-                bear_args.append(f"RSI overbought ({rsi:.1f})")
+                bear_args.append(f"RSI overbought ({rsi})")
+
             if macd > macd_signal:
                 bull += 8
                 bull_args.append("MACD bullish")
@@ -408,65 +408,111 @@ class DebateAgent:
                 bear += 8
                 bear_args.append("MACD bearish")
 
-        # risk
+        # Risk scoring
         if risk_metrics:
             rl = risk_metrics.get("risk_level", "MEDIUM")
             if rl in ("HIGH", "VERY_HIGH"):
                 bear += 20
-                bear_args.append(f"High risk ({rl})")
+                bear_args.append(f"High risk level: {rl}")
             else:
                 bull += 5
-                bull_args.append(f"Risk acceptable ({rl})")
+                bull_args.append(f"Risk acceptable: {rl}")
 
-        # sentiment_score
+        # Sentiment
         if sentiment_score >= 60:
             bull += 8
-            bull_args.append(f"Positive sentiment ({sentiment_score:.0f})")
+            bull_args.append(f"Positive sentiment ({sentiment_score})")
         elif sentiment_score <= 40:
             bear += 8
-            bear_args.append(f"Negative sentiment ({sentiment_score:.0f})")
+            bear_args.append(f"Negative sentiment ({sentiment_score})")
 
-        # price proximity to support/resistance (if available)
-        if price_df is not None and hasattr(price_df, "iloc") and len(price_df) > 0:
-            try:
+        # Support/resistance
+        try:
+            if price_df is not None and len(price_df) > 0:
                 current = float(price_df["Close"].iloc[-1])
-                sup = float(risk_metrics.get("support")) if risk_metrics and risk_metrics.get("support") is not None else None
-                res = float(risk_metrics.get("resistance")) if risk_metrics and risk_metrics.get("resistance") is not None else None
-                if sup and current - sup < current * 0.15:
+                sup = risk_metrics.get("support")
+                res = risk_metrics.get("resistance")
+
+                if sup and current - float(sup) < current * 0.15:
                     bull += 5
                     bull_args.append("Price near support")
-                if res and res - current < current * 0.10:
+
+                if res and float(res) - current < current * 0.10:
                     bear += 5
                     bear_args.append("Price near resistance")
-            except Exception:
-                pass
+        except:
+            pass
 
-        # final consensus
         total = bull + bear
-        if total == 0:
-            bull_pct = bear_pct = 50
-        else:
-            bull_pct = (bull / total) * 100
-            bear_pct = (bear / total) * 100
+        bull_pct = (bull / total) * 100 if total else 50
+        bear_pct = (bear / total) * 100 if total else 50
 
+        return bull, bear, bull_args, bear_args, bull_pct, bear_pct
+
+    # -------------------------- LLM SUMMARY --------------------------
+    def _llm_summary(self, ticker, bull_args, bear_args, bull_strength, bear_strength, consensus_action, consensus_conf):
+        if not self.llm:
+            return "LLM unavailable — logic summary only."
+
+        prompt = f"""
+You are a professional financial analyst.
+
+Ticker: {ticker}
+
+Bull Case:
+{bull_args}
+
+Bear Case:
+{bear_args}
+
+Bull Strength: {bull_strength}
+Bear Strength: {bear_strength}
+
+Consensus Action: {consensus_action}
+Consensus Confidence: {consensus_conf}%
+
+Write a balanced 150–200 word debate summary.
+DO NOT invent numbers. Use ONLY the arguments provided.
+"""
+
+        try:
+            result = self.llm.ask(prompt)
+            return str(result)
+        except:
+            return "LLM failed — fallback to logic-only summary."
+
+    # -------------------------- PUBLIC METHOD --------------------------
+    def debate(self, ticker: str, technical_result: Dict, risk_metrics: Dict, price_data=None, sentiment_score: float = 50.0):
+
+        price_df = price_data.get("df") if isinstance(price_data, dict) else price_data
+
+        bull, bear, bull_args, bear_args, bull_pct, bear_pct = \
+            self._score_logic(ticker, technical_result, risk_metrics, price_df, sentiment_score)
+
+        # Consensus logic
         if bull - bear > 15:
-            consensus_action = "BUY"
-            consensus_conf = min(90, 50 + (bull - bear) / 2)
+            action = "BUY"
+            conf = min(90, 50 + (bull - bear) / 2)
         elif bear - bull > 15:
-            consensus_action = "SELL"
-            consensus_conf = min(90, 50 + (bear - bull) / 2)
+            action = "SELL"
+            conf = min(90, 50 + (bear - bull) / 2)
         else:
-            consensus_action = "HOLD"
-            consensus_conf = 50
+            action = "HOLD"
+            conf = 50
+
+        narrative = self._llm_summary(
+            ticker, bull_args, bear_args, round(bull, 1), round(bear, 1), action, round(conf, 1)
+        )
 
         return {
             "ticker": ticker,
-            "bull_case": {"arguments": bull_args, "strength": round(bull, 2)},
-            "bear_case": {"arguments": bear_args, "strength": round(bear, 2)},
+            "bull_case": {"arguments": bull_args, "strength": round(bull, 1)},
+            "bear_case": {"arguments": bear_args, "strength": round(bear, 1)},
             "consensus": {
-                "action": consensus_action,
-                "confidence": round(consensus_conf, 1),
+                "action": action,
+                "confidence": round(conf, 1),
                 "bull_pct": round(bull_pct, 1),
                 "bear_pct": round(bear_pct, 1)
-            }
+            },
+            "narrative": narrative
         }

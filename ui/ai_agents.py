@@ -836,18 +836,1414 @@ Notes:
 #     # allow direct testing outside Streamlit (minimal)
 #     print("This module is a Streamlit page. Run with `streamlit run trading_bot/ui/ai_agents.py`")
 
+# # trading_bot/ui/ai_agents.py
+# import os
+# import time
+# from datetime import datetime, timedelta
+# import logging
+# import streamlit as st
+# import pandas as pd
+# from data.data_fetcher import fetch_data
+
+
+# from agent_runner import AgentRunner
+# from agents.wrappers import create_wrapped_agents
+# from tools.toolbox import TOOLS
+# from llm.llm_wrapper import LLM
+# from agent_runner import AgentRunner
+
+
+
+# # try both factories; prefer standard wrappers, fallback to inst_wrappers
+# try:
+#     from agents.wrappers import create_wrapped_agents
+# except Exception:
+#     create_wrapped_agents = None
+
+# try:
+#     from agents.inst_wrappers import create_inst_wrappers
+# except Exception:
+#     create_inst_wrappers = None
+
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+
+
+# # -------------------------
+# # Helpers: normalize runner responses
+# # -------------------------
+# def normalize_response(resp):
+#     """
+#     Convert various possible agent responses into a plain dict.
+#     Supports:
+#      - dict (returned as-is)
+#      - objects with .dict() (pydantic)
+#      - objects with __dict__
+#      - pandas DataFrame -> {'status':'OK','df': df}
+#      - string -> {'status':'OK','text': str}
+#      - None -> {'status':'ERROR', 'error': 'No response'}
+#     """
+#     try:
+#         if resp is None:
+#             return {"status": "ERROR", "error": "No response (None)"}
+
+#         # If runner returns a wrapper dict like {"result": {...}} or {"technical": {...}}
+#         if isinstance(resp, dict):
+#             # make a shallow copy to avoid mutating original
+#             return dict(resp)
+
+#         # pandas DataFrame
+#         if isinstance(resp, pd.DataFrame):
+#             return {"status": "OK", "df": resp}
+
+#         # pydantic or similar
+#         if hasattr(resp, "dict") and callable(getattr(resp, "dict")):
+#             try:
+#                 return {"status": "OK", **resp.dict()}
+#             except Exception:
+#                 return {"status": "OK", **(vars(resp) if hasattr(resp, "__dict__") else {"value": str(resp)})}
+
+#         # plain object with __dict__
+#         if hasattr(resp, "__dict__"):
+#             return {"status": "OK", **vars(resp)}
+
+#         # fallback to string
+#         return {"status": "OK", "text": str(resp)}
+
+#     except Exception as e:
+#         logger.exception("normalize_response failed")
+#         return {"status": "ERROR", "error": f"normalize_response failed: {e}"}
+
+
+# def extract_payload(norm: dict, preferred_keys=("result", "technical", "master", "risk", "portfolio")):
+#     """
+#     From a normalized dict, pick the nested payload under one of preferred_keys,
+#     else return the normalized dict itself.
+#     """
+#     if not isinstance(norm, dict):
+#         return {"status": "ERROR", "error": "normalize_response did not return dict"}
+
+#     for k in preferred_keys:
+#         if k in norm and isinstance(norm[k], dict):
+#             return norm[k]
+#     # sometimes agents return {'status':'OK', 'df': df}
+#     if "df" in norm or "status" in norm:
+#         return norm
+#     return norm
+
+
+# def display_json_friendly(label: str, payload, expand: bool = False):
+#     """
+#     Safely display payload in Streamlit:
+#     - dict -> st.json
+#     - DataFrame -> st.dataframe
+#     - list -> st.write
+#     - string -> st.write
+#     """
+#     st.markdown(f"### {label}")
+#     if payload is None:
+#         st.info("No output")
+#         return
+
+#     if isinstance(payload, dict):
+#         # remove DataFrame before st.json
+#         df = payload.pop("df", None)
+#         try:
+#             st.json(payload)
+#         except Exception:
+#             # fallback: pretty print
+#             st.write(payload)
+#         if df is not None:
+#             if isinstance(df, pd.DataFrame):
+#                 st.markdown("**Data (preview)**")
+#                 st.dataframe(df.head(10))
+#             else:
+#                 st.write(df)
+#     elif isinstance(payload, pd.DataFrame):
+#         st.dataframe(payload.head(10))
+#     elif isinstance(payload, list):
+#         st.write(payload)
+#     else:
+#         st.write(str(payload))
+
+
+# # -------------------------
+# # Runner initialization
+# # -------------------------
+# def ensure_session_runner():
+#     """
+#     Initialize AgentRunner + wrapped agents in session_state.
+#     Robustly supports either create_wrapped_agents or create_inst_wrappers,
+#     and factories that accept (tools, llm) or (llm) signature.
+#     """
+#     if "agent_runner" not in st.session_state:
+#         runner = AgentRunner()
+
+#         # Build wrapped agent dict using available factory
+#         wrapped = {}
+#         try:
+#             # prefer normal wrapper factory first
+#             if create_wrapped_agents is not None:
+#                 try:
+#                     wrapped = create_wrapped_agents(tools=TOOLS, llm=LLM())
+#                 except TypeError:
+#                     wrapped = create_wrapped_agents(LLM())
+#             elif create_inst_wrappers is not None:
+#                 try:
+#                     wrapped = create_inst_wrappers(tools=TOOLS, llm=LLM())
+#                 except TypeError:
+#                     wrapped = create_inst_wrappers(LLM())
+#             else:
+#                 logger.warning("No agent factory function available; starting empty AgentRunner.")
+#                 wrapped = {}
+
+#             # register returned agents
+#             for name, agent in (wrapped or {}).items():
+#                 try:
+#                     runner.register(name, agent)
+#                 except Exception as e:
+#                     logger.exception("Failed to register agent %s: %s", name, e)
+
+#             st.session_state.agent_runner = runner
+#             st.session_state.wrapped_agents = list((wrapped or {}).keys())
+#             logger.info("AgentRunner initialized with agents: %s", st.session_state.wrapped_agents)
+
+#         except Exception as e:
+#             logger.exception("Failed to initialize wrapped agents")
+#             st.session_state.agent_runner = runner
+#             st.session_state.wrapped_agents = []
+#     return st.session_state.agent_runner
+
+
+# def safe_get_latest_close(payload):
+#     """
+#     Try multiple common shapes to extract latest close.
+#     """
+#     try:
+#         if payload is None:
+#             return 0.0
+#         # payload could be {'latest_close': x}
+#         if isinstance(payload, dict):
+#             for k in ("latest_close", "latest", "close", "price"):
+#                 if k in payload and (isinstance(payload[k], (int, float)) or (isinstance(payload[k], str) and payload[k].replace('.', '', 1).isdigit())):
+#                     try:
+#                         return float(payload[k])
+#                     except Exception:
+#                         pass
+#             # payload may include df
+#             if "df" in payload and isinstance(payload["df"], pd.DataFrame):
+#                 df = payload["df"]
+#                 if "Close" in df.columns and len(df) > 0:
+#                     return float(df["Close"].iloc[-1])
+#         # if DataFrame
+#         if isinstance(payload, pd.DataFrame):
+#             df = payload
+#             if "Close" in df.columns and len(df) > 0:
+#                 return float(df["Close"].iloc[-1])
+#     except Exception:
+#         pass
+#     return 0.0
+
+
+# # -------------------------
+# # Streamlit Page
+# # -------------------------
+# def show_ai_agents_page():
+#     st.set_page_config(layout="wide", page_title="SMART-MARKET — Multi-Agent Analysis")
+#     st.title("🤖 SMART-MARKET — Multi-Agent Analysis")
+
+#     runner = ensure_session_runner()
+
+#     groq_key = os.getenv("GROQ_API_KEY", "").strip()
+#     groq_ready = bool(groq_key)
+
+#     with st.sidebar:
+#         st.header("Run settings")
+#         ticker = st.text_input("Ticker (e.g. RELIANCE.NS)", value=st.session_state.get("ticker", "RELIANCE.NS"))
+#         start_date_input = st.date_input("Start date", value=datetime.now() - timedelta(days=180))
+#         end_date_input = st.date_input("End date", value=datetime.now())
+#         show_debate = st.checkbox("Show Debate", value=True)
+#         run_btn = st.button("🚀 Analyze")
+#         st.markdown("---")
+#         st.markdown("Agents:")
+#         st.write(", ".join(st.session_state.get("wrapped_agents", [])))
+#         if not groq_ready:
+#             st.warning("GROQ_API_KEY not configured. LLM features disabled.")
+#         else:
+#             st.success("Groq ready ✅")
+
+#     st.session_state["ticker"] = ticker
+#     start_date = datetime.combine(start_date_input, datetime.min.time())
+#     end_date = datetime.combine(end_date_input, datetime.max.time())
+
+#     if not run_btn:
+#         st.info("Configure settings in the sidebar and click Analyze.")
+#         return
+
+#     # Run pipeline defensively
+#     progress = st.progress(0)
+#     status = st.empty()
+
+#     try:
+#         status.info("1/6 — Fetch canonical price data (via TOOLS)")
+#         progress.progress(5)
+
+#         price_df = None
+#         latest_close = 0.0
+#         try:
+#             if "fetch_price" in TOOLS:
+#                 price_res = TOOLS["fetch_price"](ticker, start_date, end_date)
+#                 if isinstance(price_res, dict) and price_res.get("status") == "OK" and price_res.get("df") is not None:
+#                     price_df = price_res.get("df")
+#                 elif hasattr(price_res, "iloc"):
+#                     price_df = price_res
+#                 else:
+#                     # log and continue; some tools return errors
+#                     logger.warning("fetch_price returned unexpected shape: %s", type(price_res))
+#             else:
+#                 logger.warning("fetch_price not available in TOOLS")
+#         except Exception as e:
+#             logger.exception("TOOLS.fetch_price failed: %s", e)
+#             status.error(f"Price fetch failed: {e}")
+
+#         if isinstance(price_df, pd.DataFrame) and len(price_df) > 0:
+#             latest_close = float(price_df["Close"].iloc[-1]) if "Close" in price_df.columns else 0.0
+
+#         # TECHNICAL
+#         status.info("2/6 — Running Technical Agent")
+#         progress.progress(20)
+#         tech_raw = runner.run("technical", {"ticker": ticker, "start": start_date, "end": end_date})
+#         tech_norm = normalize_response(tech_raw)
+#         tech_payload = extract_payload(tech_norm, preferred_keys=("technical", "result"))
+#         # If agent returned df but not computed indicators, attach price_df
+#         if "df" not in tech_payload and isinstance(price_df, pd.DataFrame):
+#             tech_payload["df"] = price_df
+
+#         # ensure we have latest_close from technical if present
+#         latest_close = latest_close or safe_get_latest_close(tech_payload)
+
+#         # NEWS
+#         status.info("3/6 — Running News Agent")
+#         progress.progress(40)
+#         news_raw = runner.run("news", {"ticker": ticker, "start": start_date, "end": end_date})
+#         news_norm = normalize_response(news_raw)
+#         news_payload = extract_payload(news_norm)
+
+#         # RISK
+#         status.info("4/6 — Running Risk Agent")
+#         progress.progress(55)
+#         risk_input = {
+#             "ticker": ticker,
+#             "start": start_date,
+#             "end": end_date,
+#             "technical_confidence": tech_payload.get("confidence", 50) if isinstance(tech_payload, dict) else 50,
+#             "df": tech_payload.get("df", price_df),
+#             "current_price": latest_close
+#         }
+#         risk_raw = runner.run("risk", risk_input)
+#         risk_norm = normalize_response(risk_raw)
+#         risk_payload = extract_payload(risk_norm)
+
+#         # PORTFOLIO
+#         status.info("5/6 — Running Portfolio Agent")
+#         progress.progress(75)
+#         port_input = {
+#             "ticker": ticker,
+#             "current_price": latest_close,
+#             "technical_signal": tech_payload if isinstance(tech_payload, dict) else {},
+#             "risk_metrics": risk_payload if isinstance(risk_payload, dict) else {},
+#             "df": tech_payload.get("df", price_df)
+#         }
+#         port_raw = runner.run("portfolio", port_input)
+#         port_norm = normalize_response(port_raw)
+#         port_payload = extract_payload(port_norm)
+
+#         # DEBATE (optional)
+#         debate_payload = None
+#         if show_debate:
+#             status.info("6/6 — Running Debate Agent")
+#             progress.progress(85)
+#             debate_raw = runner.run("debate", {
+#                 "ticker": ticker,
+#                 "technical_result": tech_payload,
+#                 "risk_metrics": risk_payload,
+#                 "df": port_payload.get("df", tech_payload.get("df", price_df))
+#             })
+#             debate_norm = normalize_response(debate_raw)
+#             debate_payload = extract_payload(debate_norm)
+#             progress.progress(90)
+
+#         # MASTER
+#         status.info("Finalizing — Running Master Agent")
+#         master_raw = runner.run("master", {
+#             "ticker": ticker,
+#             "technical_result": tech_payload,
+#             "sentiment_result": news_payload,
+#             "risk_metrics": risk_payload,
+#             "portfolio_metrics": port_payload,
+#             "current_price": latest_close
+#         })
+#         master_norm = normalize_response(master_raw)
+#         master_payload = extract_payload(master_norm, preferred_keys=("master", "result"))
+
+#         progress.progress(100)
+#         status.empty()
+#         progress.empty()
+#         st.success("✅ Analysis Complete")
+
+#         # ---------- DISPLAY ----------
+#         tab_all, tab_master, tab_debate, tab_news = st.tabs(["All Agents", "Master", "Debate", "News"])
+
+#         with tab_all:
+#             col1, col2 = st.columns(2)
+#             with col1:
+#                 display_json_friendly("Technical Agent", tech_payload)
+#                 st.markdown("---")
+#                 display_json_friendly("Risk Agent", risk_payload)
+#             with col2:
+#                 display_json_friendly("Portfolio Agent", port_payload)
+#                 st.markdown("---")
+#                 if debate_payload:
+#                     display_json_friendly("Debate Agent", debate_payload)
+
+#         with tab_master:
+#             if isinstance(master_payload, dict):
+#                 action = master_payload.get("action", "HOLD")
+#                 confidence = master_payload.get("confidence", 50)
+        
+#                 st.metric("Action", action)
+#                 st.metric("Confidence", f"{confidence}%")
+        
+#         # Show rule-based reasoning
+#                 rb = master_payload.get("reasoning", None)
+#                 if rb:
+#                     st.markdown("### Rule-based Reasoning")
+#                     st.write(rb)
+        
+#                 # Show LLM reasoning if available
+#                 if "llm_reasoning" in master_payload and master_payload["llm_reasoning"]:
+#                     st.markdown("### LLM Explanation")
+#                     st.write(master_payload["llm_reasoning"])
+        
+#                 # Show signals (clean)
+#                 if "signals" in master_payload:
+#                     st.markdown("### Signal Breakdown")
+#                     st.json(master_payload["signals"])
+#             else:
+#                 st.info("No master decision available")
+#                 st.write(master_payload)
+
+
+#         with tab_debate:
+#             if debate_payload:
+#                 st.json(debate_payload)
+#             else:
+#                 st.info("No debate output")
+
+#         with tab_news:
+#             if isinstance(news_payload, dict):
+#                 summaries = news_payload.get("summaries") or news_payload.get("articles") or []
+#                 if summaries:
+#                     for s in summaries[:10]:
+#                         # pretty print if dict-like
+#                         if isinstance(s, dict):
+#                             title = s.get("title", s.get("headline", "No title"))
+#                             src = s.get("source", "unknown")
+#                             st.write(f"- {title} — {src}")
+#                         else:
+#                             st.write(f"- {s}")
+#                 else:
+#                     st.info("No news articles found")
+#             else:
+#                 st.write(news_payload)
+
+#         # Quick execution panel (simulated)
+#         st.markdown("---")
+#         if isinstance(master_payload, dict) and (master_payload.get("action") or master_payload.get("recommendation")):
+#             master_action = master_payload.get("action", master_payload.get("recommendation", "HOLD"))
+#             if master_action != "HOLD":
+#                 qty_default = int(port_payload.get("suggested_quantity", port_payload.get("quantity", 1)) if isinstance(port_payload, dict) else 1)
+#                 qty = st.number_input("Quantity", min_value=1, value=qty_default)
+#                 if st.button(f"Simulate {master_action}"):
+#                     st.success(f"Simulated {master_action} {qty} @ {latest_close:.2f}")
+#             else:
+#                 st.info("Master recommends HOLD")
+
+#     except Exception as e:
+#         logger.exception("Pipeline failure")
+#         st.error(f"Pipeline error: {e}")
+#         with st.expander("Trace"):
+#             import traceback
+#             st.code(traceback.format_exc())
+
+
+# # trading_bot/ui/ai_agents.py
+# import os
+# from datetime import datetime, timedelta
+# import logging
+# import streamlit as st
+# import pandas as pd
+
+# from data.data_fetcher import fetch_data  # kept for potential future use
+
+# # Runner + factories (robust imports)
+# from agent_runner import AgentRunner
+# try:
+#     from agents.wrappers import create_wrapped_agents
+# except Exception:
+#     create_wrapped_agents = None
+
+# try:
+#     from agents.inst_wrappers import create_inst_wrappers
+# except Exception:
+#     create_inst_wrappers = None
+
+# from tools.toolbox import TOOLS
+# from llm.llm_wrapper import LLM
+
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+
+
+# # -------------------------
+# # Helpers: normalize runner responses
+# # -------------------------
+# def normalize_response(resp):
+#     """
+#     Convert possible agent responses into a plain dict.
+#     - dict -> returned as shallow copy
+#     - pandas.DataFrame -> {'status':'OK','df': df}
+#     - objects with .dict() -> use .dict()
+#     - objects with __dict__ -> use vars()
+#     - string/other -> {'status':'OK','text': str(resp)}
+#     - None -> {'status':'ERROR', 'error': 'No response'}
+#     """
+#     try:
+#         if resp is None:
+#             return {"status": "ERROR", "error": "No response (None)"}
+
+#         if isinstance(resp, dict):
+#             return dict(resp)
+
+#         if isinstance(resp, pd.DataFrame):
+#             return {"status": "OK", "df": resp}
+
+#         # pydantic-style
+#         if hasattr(resp, "dict") and callable(getattr(resp, "dict")):
+#             try:
+#                 return {"status": "OK", **resp.dict()}
+#             except Exception:
+#                 pass
+
+#         if hasattr(resp, "__dict__"):
+#             try:
+#                 return {"status": "OK", **vars(resp)}
+#             except Exception:
+#                 pass
+
+#         return {"status": "OK", "text": str(resp)}
+#     except Exception as e:
+#         logger.exception("normalize_response failed")
+#         return {"status": "ERROR", "error": f"normalize_response failed: {e}"}
+
+
+# def extract_payload(norm: dict, preferred_keys=("result", "technical", "master", "risk", "portfolio")):
+#     """
+#     From a normalized dict, pick the nested payload under preferred_keys,
+#     else return the normalized dict itself.
+#     """
+#     if not isinstance(norm, dict):
+#         return {"status": "ERROR", "error": "normalize_response did not return dict"}
+
+#     for k in preferred_keys:
+#         if k in norm and isinstance(norm[k], dict):
+#             return norm[k]
+#     # sometimes responses are {'status':'OK', 'df': df}
+#     if "df" in norm or "status" in norm:
+#         return norm
+#     return norm
+
+
+# def display_json_friendly(label: str, payload, expand: bool = False):
+#     """
+#     Safely display payload in Streamlit:
+#     - dict -> st.json (with dataframe shown separately)
+#     - DataFrame -> st.dataframe
+#     - list -> st.write
+#     - string -> st.write
+#     """
+#     st.markdown(f"### {label}")
+#     if payload is None:
+#         st.info("No output")
+#         return
+
+#     if isinstance(payload, dict):
+#         # show dataframe preview if present but don't mutate original dict
+#         df = payload.get("df", None)
+#         try:
+#             st.json({k: v for k, v in payload.items() if k != "df"})
+#         except Exception:
+#             st.write(payload)
+#         if df is not None:
+#             if isinstance(df, pd.DataFrame):
+#                 st.markdown("**Data (preview)**")
+#                 st.dataframe(df.head(10))
+#             else:
+#                 st.write(df)
+#     elif isinstance(payload, pd.DataFrame):
+#         st.dataframe(payload.head(10))
+#     elif isinstance(payload, list):
+#         st.write(payload)
+#     else:
+#         st.write(str(payload))
+
+
+# # -------------------------
+# # Runner initialization
+# # -------------------------
+# def ensure_session_runner():
+#     """
+#     Initialize AgentRunner + wrapped agents in session_state.
+#     Robustly supports either create_wrapped_agents or create_inst_wrappers,
+#     and factories that accept (tools, llm) or (llm) signature.
+#     """
+#     if "agent_runner" not in st.session_state:
+#         runner = AgentRunner()
+#         wrapped = {}
+#         try:
+#             # Prefer normal wrapper factory first
+#             if create_wrapped_agents is not None:
+#                 try:
+#                     wrapped = create_wrapped_agents(tools=TOOLS, llm=LLM())
+#                 except TypeError:
+#                     wrapped = create_wrapped_agents(LLM())
+#             elif create_inst_wrappers is not None:
+#                 try:
+#                     wrapped = create_inst_wrappers(tools=TOOLS, llm=LLM())
+#                 except TypeError:
+#                     wrapped = create_inst_wrappers(LLM())
+#             else:
+#                 logger.warning("No agent factory function available; starting empty AgentRunner.")
+#                 wrapped = {}
+
+#             # Register returned agents safely
+#             for name, agent in (wrapped or {}).items():
+#                 try:
+#                     runner.register(name, agent)
+#                 except Exception as e:
+#                     logger.exception("Failed to register agent %s: %s", name, e)
+
+#             st.session_state.agent_runner = runner
+#             st.session_state.wrapped_agents = list((wrapped or {}).keys())
+#             logger.info("AgentRunner initialized with agents: %s", st.session_state.wrapped_agents)
+
+#         except Exception:
+#             logger.exception("Failed to initialize wrapped agents")
+#             st.session_state.agent_runner = runner
+#             st.session_state.wrapped_agents = []
+#     return st.session_state.agent_runner
+
+
+# def safe_get_latest_close(payload):
+#     """
+#     Extract latest close price from a variety of payload shapes.
+#     """
+#     try:
+#         if payload is None:
+#             return 0.0
+
+#         if isinstance(payload, dict):
+#             for k in ("latest_close", "latest", "close", "price"):
+#                 if k in payload:
+#                     v = payload[k]
+#                     if isinstance(v, (int, float)):
+#                         return float(v)
+#                     if isinstance(v, str) and v.replace('.', '', 1).isdigit():
+#                         try:
+#                             return float(v)
+#                         except Exception:
+#                             pass
+#             if "df" in payload and isinstance(payload["df"], pd.DataFrame):
+#                 df = payload["df"]
+#                 if "Close" in df.columns and len(df) > 0:
+#                     return float(df["Close"].iloc[-1])
+
+#         if isinstance(payload, pd.DataFrame):
+#             df = payload
+#             if "Close" in df.columns and len(df) > 0:
+#                 return float(df["Close"].iloc[-1])
+
+#     except Exception:
+#         pass
+#     return 0.0
+
+
+# # -------------------------
+# # Streamlit Page
+# # -------------------------
+# def show_ai_agents_page():
+#     st.set_page_config(layout="wide", page_title="SMART-MARKET — Multi-Agent Analysis")
+#     st.title("🤖 SMART-MARKET — Multi-Agent Analysis")
+
+#     runner = ensure_session_runner()
+
+#     groq_key = os.getenv("GROQ_API_KEY", "").strip()
+#     groq_ready = bool(groq_key)
+
+#     with st.sidebar:
+#         st.header("Run settings")
+#         ticker = st.text_input("Ticker (e.g. RELIANCE.NS)", value=st.session_state.get("ticker", "RELIANCE.NS"))
+#         start_date_input = st.date_input("Start date", value=datetime.now() - timedelta(days=180))
+#         end_date_input = st.date_input("End date", value=datetime.now())
+#         show_debate = st.checkbox("Show Debate", value=True)
+#         run_btn = st.button("🚀 Analyze")
+#         st.markdown("---")
+#         st.markdown("Agents:")
+#         st.write(", ".join(st.session_state.get("wrapped_agents", [])))
+#         if not groq_ready:
+#             st.warning("GROQ_API_KEY not configured. LLM features disabled.")
+#         else:
+#             st.success("Groq ready ✅")
+
+#     st.session_state["ticker"] = ticker
+#     start_date = datetime.combine(start_date_input, datetime.min.time())
+#     end_date = datetime.combine(end_date_input, datetime.max.time())
+
+#     if not run_btn:
+#         st.info("Configure settings in the sidebar and click Analyze.")
+#         return
+
+#     # Run pipeline defensively
+#     progress = st.progress(0)
+#     status = st.empty()
+
+#     try:
+#         status.info("1/6 — Fetch canonical price data (via TOOLS)")
+#         progress.progress(5)
+
+#         price_df = None
+#         latest_close = 0.0
+#         try:
+#             if "fetch_price" in TOOLS:
+#                 price_res = TOOLS["fetch_price"](ticker, start_date, end_date)
+#                 if isinstance(price_res, dict) and price_res.get("status") == "OK" and price_res.get("df") is not None:
+#                     price_df = price_res.get("df")
+#                 elif hasattr(price_res, "iloc"):
+#                     price_df = price_res
+#                 else:
+#                     logger.warning("fetch_price returned unexpected shape: %s", type(price_res))
+#             else:
+#                 logger.warning("fetch_price not available in TOOLS")
+#         except Exception as e:
+#             logger.exception("TOOLS.fetch_price failed: %s", e)
+#             status.error(f"Price fetch failed: {e}")
+
+#         if isinstance(price_df, pd.DataFrame) and len(price_df) > 0:
+#             latest_close = float(price_df["Close"].iloc[-1]) if "Close" in price_df.columns else 0.0
+
+#         # TECHNICAL
+#         status.info("2/6 — Running Technical Agent")
+#         progress.progress(20)
+#         tech_raw = runner.run("technical", {"ticker": ticker, "start": start_date, "end": end_date})
+#         tech_norm = normalize_response(tech_raw)
+#         tech_payload = extract_payload(tech_norm, preferred_keys=("technical", "result"))
+#         if isinstance(tech_payload, dict) and "df" not in tech_payload and isinstance(price_df, pd.DataFrame):
+#             tech_payload["df"] = price_df
+
+#         latest_close = latest_close or safe_get_latest_close(tech_payload)
+
+#         # NEWS
+#         status.info("3/6 — Running News Agent")
+#         progress.progress(40)
+#         news_raw = runner.run("news", {"ticker": ticker, "start": start_date, "end": end_date})
+#         news_norm = normalize_response(news_raw)
+#         news_payload = extract_payload(news_norm)
+
+#         # RISK
+#         status.info("4/6 — Running Risk Agent")
+#         progress.progress(55)
+#         risk_input = {
+#             "ticker": ticker,
+#             "start": start_date,
+#             "end": end_date,
+#             "technical_confidence": tech_payload.get("confidence", 50) if isinstance(tech_payload, dict) else 50,
+#             "df": tech_payload.get("df", price_df),
+#             "current_price": latest_close
+#         }
+#         risk_raw = runner.run("risk", risk_input)
+#         risk_norm = normalize_response(risk_raw)
+#         risk_payload = extract_payload(risk_norm)
+
+#         # PORTFOLIO
+#         status.info("5/6 — Running Portfolio Agent")
+#         progress.progress(75)
+#         port_input = {
+#             "ticker": ticker,
+#             "current_price": latest_close,
+#             "technical_signal": tech_payload if isinstance(tech_payload, dict) else {},
+#             "risk_metrics": risk_payload if isinstance(risk_payload, dict) else {},
+#             "df": tech_payload.get("df", price_df)
+#         }
+#         port_raw = runner.run("portfolio", port_input)
+#         port_norm = normalize_response(port_raw)
+#         port_payload = extract_payload(port_norm)
+
+#         # DEBATE (optional)
+#         debate_payload = None
+#         if show_debate:
+#             status.info("6/6 — Running Debate Agent")
+#             progress.progress(85)
+#             debate_raw = runner.run("debate", {
+#                 "ticker": ticker,
+#                 "technical_result": tech_payload,
+#                 "risk_metrics": risk_payload,
+#                 "df": port_payload.get("df", tech_payload.get("df", price_df))
+#             })
+#             debate_norm = normalize_response(debate_raw)
+#             debate_payload = extract_payload(debate_norm)
+#             progress.progress(90)
+
+#         # MASTER
+#         status.info("Finalizing — Running Master Agent")
+#         master_raw = runner.run("master", {
+#             "ticker": ticker,
+#             "technical_result": tech_payload,
+#             "sentiment_result": debate_payload or news_payload,
+#             "risk_metrics": risk_payload,
+#             "portfolio_metrics": port_payload,
+#             "current_price": latest_close
+#         })
+#         master_norm = normalize_response(master_raw)
+#         # master can be nested under 'master' key or returned flat
+#         master_payload = master_norm.get("master") if isinstance(master_norm, dict) and "master" in master_norm else extract_payload(master_norm, preferred_keys=("master", "result"))
+
+#         progress.progress(100)
+#         status.empty()
+#         progress.empty()
+#         st.success("✅ Analysis Complete")
+
+#         # ---------- DISPLAY ----------
+#         tab_all, tab_master, tab_debate, tab_news = st.tabs(["All Agents", "Master", "Debate", "News"])
+
+#         with tab_all:
+#             col1, col2 = st.columns(2)
+#             with col1:
+#                 display_json_friendly("Technical Agent", tech_payload)
+#                 st.markdown("---")
+#                 display_json_friendly("Risk Agent", risk_payload)
+#             with col2:
+#                 display_json_friendly("Portfolio Agent", port_payload)
+#                 st.markdown("---")
+#                 if debate_payload:
+#                     display_json_friendly("Debate Agent", debate_payload)
+
+#         with tab_master:
+#             # Debug raw payload (toggleable) — uncomment to aid troubleshooting
+#             # st.write("DEBUG MASTER_RAW:", master_raw)
+#             # st.write("DEBUG MASTER_NORM:", master_norm)
+#             # st.write("DEBUG MASTER_PAYLOAD:", master_payload)
+
+#             if isinstance(master_payload, dict):
+#                 # Multiple fallback locations handled
+#                 action = master_payload.get("action") or master_payload.get("recommendation") or master_payload.get("final_action") or "HOLD"
+#                 confidence = master_payload.get("confidence") or master_payload.get("final_confidence") or master_payload.get("confidence_pct") or 50
+
+#                 st.metric("Action", action)
+#                 st.metric("Confidence", f"{confidence}%")
+
+#                 # Rule-based reasoning
+#                 rb = master_payload.get("reasoning") or master_payload.get("explanation") or master_payload.get("reason")
+#                 if rb:
+#                     st.markdown("### Rule-based Reasoning")
+#                     st.write(rb)
+
+#                 # LLM reasoning (many agents call it llm_reasoning or llm_action/llm_confidence)
+#                 llm_text = master_payload.get("llm_reasoning") or master_payload.get("llm_explanation") or master_payload.get("explain_llm")
+#                 if llm_text:
+#                     st.markdown("### LLM Explanation")
+#                     st.write(llm_text)
+
+#                 # Clean signal breakdown
+#                 signals = master_payload.get("signals") or master_payload.get("signal_breakdown") or {}
+#                 if signals:
+#                     st.markdown("### Signal Breakdown")
+#                     st.json(signals)
+
+#             else:
+#                 st.info("No master decision available")
+#                 st.write(master_payload)
+
+#         with tab_debate:
+#             if debate_payload:
+#                 display_json_friendly("Debate Output", debate_payload)
+#             else:
+#                 st.info("No debate output")
+
+#         with tab_news:
+#             if isinstance(news_payload, dict):
+#                 summaries = news_payload.get("summaries") or news_payload.get("articles") or []
+#                 if summaries:
+#                     for s in summaries[:10]:
+#                         if isinstance(s, dict):
+#                             title = s.get("title", s.get("headline", "No title"))
+#                             src = s.get("source", "unknown")
+#                             st.write(f"- {title} — {src}")
+#                         else:
+#                             st.write(f"- {s}")
+#                 else:
+#                     st.info("No news articles found")
+#             else:
+#                 st.write(news_payload)
+
+#         # Quick execution panel (simulated)
+#         st.markdown("---")
+#         if isinstance(master_payload, dict) and (master_payload.get("action") or master_payload.get("recommendation")):
+#             master_action = master_payload.get("action", master_payload.get("recommendation", "HOLD"))
+#             if master_action != "HOLD":
+#                 qty_default = int(port_payload.get("suggested_quantity", port_payload.get("quantity", 1)) if isinstance(port_payload, dict) else 1)
+#                 qty = st.number_input("Quantity", min_value=1, value=qty_default)
+#                 if st.button(f"Simulate {master_action}"):
+#                     st.success(f"Simulated {master_action} {qty} @ {latest_close:.2f}")
+#             else:
+#                 st.info("Master recommends HOLD")
+
+#     except Exception as e:
+#         logger.exception("Pipeline failure")
+#         st.error(f"Pipeline error: {e}")
+#         with st.expander("Trace"):
+#             import traceback
+#             st.code(traceback.format_exc())
+
+
+# # trading_bot/ui/ai_agents.py
+# import os
+# from datetime import datetime, timedelta
+# import logging
+# import streamlit as st
+# import pandas as pd
+
+# from data.data_fetcher import fetch_data  # kept for potential future use
+
+# # Runner + factories (robust imports)
+# from agent_runner import AgentRunner
+# try:
+#     from agents.wrappers import create_wrapped_agents
+# except Exception:
+#     create_wrapped_agents = None
+
+# try:
+#     from agents.inst_wrappers import create_inst_wrappers
+# except Exception:
+#     create_inst_wrappers = None
+
+# from tools.toolbox import TOOLS
+# from llm.llm_wrapper import LLM
+
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.INFO)
+
+
+# # -------------------------
+# # Helpers: normalize runner responses
+# # -------------------------
+# def normalize_response(resp):
+#     """
+#     Convert possible agent responses into a plain dict.
+#     - dict -> returned as shallow copy
+#     - pandas.DataFrame -> {'status':'OK','df': df}
+#     - objects with .dict() -> use .dict()
+#     - objects with __dict__ -> use vars()
+#     - string/other -> {'status':'OK','text': str(resp)}
+#     - None -> {'status':'ERROR', 'error': 'No response'}
+#     """
+#     try:
+#         if resp is None:
+#             return {"status": "ERROR", "error": "No response (None)"}
+
+#         if isinstance(resp, dict):
+#             return dict(resp)
+
+#         if isinstance(resp, pd.DataFrame):
+#             return {"status": "OK", "df": resp}
+
+#         # pydantic-style
+#         if hasattr(resp, "dict") and callable(getattr(resp, "dict")):
+#             try:
+#                 return {"status": "OK", **resp.dict()}
+#             except Exception:
+#                 pass
+
+#         if hasattr(resp, "__dict__"):
+#             try:
+#                 return {"status": "OK", **vars(resp)}
+#             except Exception:
+#                 pass
+
+#         return {"status": "OK", "text": str(resp)}
+#     except Exception as e:
+#         logger.exception("normalize_response failed")
+#         return {"status": "ERROR", "error": f"normalize_response failed: {e}"}
+
+
+# def extract_payload(norm: dict, preferred_keys=("result", "technical", "master", "risk", "portfolio")):
+#     """
+#     From a normalized dict, pick the nested payload under preferred_keys,
+#     else return the normalized dict itself.
+#     """
+#     if not isinstance(norm, dict):
+#         return {"status": "ERROR", "error": "normalize_response did not return dict"}
+
+#     for k in preferred_keys:
+#         if k in norm and isinstance(norm[k], dict):
+#             return norm[k]
+#     # sometimes responses are {'status':'OK', 'df': df}
+#     if "df" in norm or "status" in norm:
+#         return norm
+#     return norm
+
+
+# def display_json_friendly(label: str, payload, expand: bool = False):
+#     """
+#     Safely display payload in Streamlit:
+#     - dict -> st.json (with dataframe shown separately)
+#     - DataFrame -> st.dataframe
+#     - list -> st.write
+#     - string -> st.write
+#     """
+#     st.markdown(f"### {label}")
+#     if payload is None:
+#         st.info("No output")
+#         return
+
+#     if isinstance(payload, dict):
+#         # show dataframe preview if present but don't mutate original dict
+#         df = payload.get("df", None)
+#         try:
+#             st.json({k: v for k, v in payload.items() if k != "df"})
+#         except Exception:
+#             st.write(payload)
+#         if df is not None:
+#             if isinstance(df, pd.DataFrame):
+#                 st.markdown("**Data (preview)**")
+#                 st.dataframe(df.head(10))
+#             else:
+#                 st.write(df)
+#     elif isinstance(payload, pd.DataFrame):
+#         st.dataframe(payload.head(10))
+#     elif isinstance(payload, list):
+#         st.write(payload)
+#     else:
+#         st.write(str(payload))
+
+
+# def display_master_agent_analysis(master_payload: dict):
+#     """
+#     Clean, professional display for the new Master Agent
+#     """
+#     if not isinstance(master_payload, dict):
+#         st.error("No master analysis available")
+#         return
+
+#     # Extract display data or use main payload
+#     display_data = master_payload.get("display_data", {})
+#     if not display_data:
+#         display_data = {
+#             "final_decision": master_payload.get("action", "HOLD"),
+#             "confidence": master_payload.get("confidence", 50),
+#             "reasoning": master_payload.get("reasoning", "No reasoning provided"),
+#             "narrative": master_payload.get("narrative", "No analysis available"),
+#             "quantity": master_payload.get("quantity", 0),
+#             "stop_loss": master_payload.get("risk_management", {}).get("stop_loss"),
+#             "take_profit": master_payload.get("risk_management", {}).get("take_profit"),
+#             "current_price": master_payload.get("current_price", 0)
+#         }
+
+#     st.markdown("---")
+    
+#     # Main Decision Card
+#     col1, col2, col3 = st.columns(3)
+    
+#     decision = display_data.get("final_decision", "HOLD")
+#     confidence = display_data.get("confidence", 50)
+    
+#     with col1:
+#         if decision == "BUY":
+#             st.success(f"## 🟢 {decision}")
+#         elif decision == "SELL":
+#             st.error(f"## 🔴 {decision}")  
+#         else:
+#             st.info(f"## ⚪ {decision}")
+            
+#     with col2:
+#         st.metric("Confidence", f"{confidence}%")
+        
+#     with col3:
+#         st.metric("Position Size", display_data.get("quantity", 0))
+    
+#     # Current Price
+#     current_price = display_data.get("current_price")
+#     if current_price:
+#         st.write(f"**Current Price:** ${current_price:.2f}")
+    
+#     # Narrative (Main story)
+#     st.markdown("### 📋 AI Analysis Summary")
+#     narrative = display_data.get("narrative", "No analysis available")
+#     st.info(narrative)
+    
+#     # Risk Management
+#     st.markdown("### 🛡️ Risk Management")
+#     risk_col1, risk_col2 = st.columns(2)
+    
+#     with risk_col1:
+#         stop_loss = display_data.get("stop_loss")
+#         if stop_loss:
+#             st.metric("Stop Loss", f"${stop_loss:.2f}")
+#         else:
+#             st.write("Stop Loss: N/A")
+            
+#     with risk_col2:
+#         take_profit = display_data.get("take_profit") 
+#         if take_profit:
+#             st.metric("Take Profit", f"${take_profit:.2f}")
+#         else:
+#             st.write("Take Profit: N/A")
+    
+#     # Signal Breakdown (expandable)
+#     with st.expander("🔍 Signal Analysis Details"):
+#         reasoning = display_data.get("reasoning", "No detailed reasoning")
+#         st.write(f"**Decision Logic:** {reasoning}")
+        
+#         # Show signal scores if available
+#         signals = master_payload.get("signals", {})
+#         if signals:
+#             col1, col2 = st.columns(2)
+#             with col1:
+#                 buy_score = signals.get("buy_score", 0)
+#                 st.metric("Buy Score", f"{buy_score:.1f}")
+#             with col2:
+#                 sell_score = signals.get("sell_score", 0)
+#                 st.metric("Sell Score", f"{sell_score:.1f}")
+            
+#             # Show arguments
+#             buy_args = signals.get("buy_arguments", [])
+#             sell_args = signals.get("sell_arguments", [])
+            
+#             if buy_args:
+#                 st.write("**Bullish Factors:**")
+#                 for arg in buy_args:
+#                     st.write(f"• {arg}")
+            
+#             if sell_args:
+#                 st.write("**Bearish Factors:**")
+#                 for arg in sell_args:
+#                     st.write(f"• {arg}")
+
+
+# # -------------------------
+# # Runner initialization
+# # -------------------------
+# def ensure_session_runner():
+#     """
+#     Initialize AgentRunner + wrapped agents in session_state.
+#     Robustly supports either create_wrapped_agents or create_inst_wrappers,
+#     and factories that accept (tools, llm) or (llm) signature.
+#     """
+#     if "agent_runner" not in st.session_state:
+#         runner = AgentRunner()
+#         wrapped = {}
+#         try:
+#             # Prefer normal wrapper factory first
+#             if create_wrapped_agents is not None:
+#                 try:
+#                     wrapped = create_wrapped_agents(tools=TOOLS, llm=LLM())
+#                 except TypeError:
+#                     wrapped = create_wrapped_agents(LLM())
+#             elif create_inst_wrappers is not None:
+#                 try:
+#                     wrapped = create_inst_wrappers(tools=TOOLS, llm=LLM())
+#                 except TypeError:
+#                     wrapped = create_inst_wrappers(LLM())
+#             else:
+#                 logger.warning("No agent factory function available; starting empty AgentRunner.")
+#                 wrapped = {}
+
+#             # Register returned agents safely
+#             for name, agent in (wrapped or {}).items():
+#                 try:
+#                     runner.register(name, agent)
+#                 except Exception as e:
+#                     logger.exception("Failed to register agent %s: %s", name, e)
+
+#             st.session_state.agent_runner = runner
+#             st.session_state.wrapped_agents = list((wrapped or {}).keys())
+#             logger.info("AgentRunner initialized with agents: %s", st.session_state.wrapped_agents)
+
+#         except Exception:
+#             logger.exception("Failed to initialize wrapped agents")
+#             st.session_state.agent_runner = runner
+#             st.session_state.wrapped_agents = []
+#     return st.session_state.agent_runner
+
+
+# def safe_get_latest_close(payload):
+#     """
+#     Extract latest close price from a variety of payload shapes.
+#     """
+#     try:
+#         if payload is None:
+#             return 0.0
+
+#         if isinstance(payload, dict):
+#             for k in ("latest_close", "latest", "close", "price"):
+#                 if k in payload:
+#                     v = payload[k]
+#                     if isinstance(v, (int, float)):
+#                         return float(v)
+#                     if isinstance(v, str) and v.replace('.', '', 1).isdigit():
+#                         try:
+#                             return float(v)
+#                         except Exception:
+#                             pass
+#             if "df" in payload and isinstance(payload["df"], pd.DataFrame):
+#                 df = payload["df"]
+#                 if "Close" in df.columns and len(df) > 0:
+#                     return float(df["Close"].iloc[-1])
+
+#         if isinstance(payload, pd.DataFrame):
+#             df = payload
+#             if "Close" in df.columns and len(df) > 0:
+#                 return float(df["Close"].iloc[-1])
+
+#     except Exception:
+#         pass
+#     return 0.0
+
+
+# # -------------------------
+# # Streamlit Page
+# # -------------------------
+# def show_ai_agents_page():
+#     st.set_page_config(layout="wide", page_title="SMART-MARKET — Agent Analysis")
+#     st.title("🤖 SMART-MARKET — Agent Analysis")
+
+#     runner = ensure_session_runner()
+
+#     groq_key = os.getenv("GROQ_API_KEY", "").strip()
+#     groq_ready = bool(groq_key)
+
+#     with st.sidebar:
+#         st.header("Run settings")
+#         ticker = st.text_input("Ticker (e.g. RELIANCE.NS)", value=st.session_state.get("ticker", "RELIANCE.NS"))
+#         start_date_input = st.date_input("Start date", value=datetime.now() - timedelta(days=180))
+#         end_date_input = st.date_input("End date", value=datetime.now())
+#         show_debate = st.checkbox("Show Debate", value=True)
+#         run_btn = st.button("🚀 Analyze")
+#         st.markdown("---")
+#         st.markdown("Agents:")
+#         st.write(", ".join(st.session_state.get("wrapped_agents", [])))
+#         if not groq_ready:
+#             st.warning("GROQ_API_KEY not configured. LLM features disabled.")
+#         else:
+#             st.success("Groq ready ✅")
+
+#     st.session_state["ticker"] = ticker
+#     start_date = datetime.combine(start_date_input, datetime.min.time())
+#     end_date = datetime.combine(end_date_input, datetime.max.time())
+
+#     if not run_btn:
+#         st.info("Configure settings in the sidebar and click Analyze.")
+#         return
+
+#     # Run pipeline defensively
+#     progress = st.progress(0)
+#     status = st.empty()
+
+#     try:
+#         status.info("1/6 — Fetch canonical price data (via TOOLS)")
+#         progress.progress(5)
+
+#         price_df = None
+#         latest_close = 0.0
+#         try:
+#             if "fetch_price" in TOOLS:
+#                 price_res = TOOLS["fetch_price"](ticker, start_date, end_date)
+#                 if isinstance(price_res, dict) and price_res.get("status") == "OK" and price_res.get("df") is not None:
+#                     price_df = price_res.get("df")
+#                 elif hasattr(price_res, "iloc"):
+#                     price_df = price_res
+#                 else:
+#                     logger.warning("fetch_price returned unexpected shape: %s", type(price_res))
+#             else:
+#                 logger.warning("fetch_price not available in TOOLS")
+#         except Exception as e:
+#             logger.exception("TOOLS.fetch_price failed: %s", e)
+#             status.error(f"Price fetch failed: {e}")
+
+#         if isinstance(price_df, pd.DataFrame) and len(price_df) > 0:
+#             latest_close = float(price_df["Close"].iloc[-1]) if "Close" in price_df.columns else 0.0
+
+#         # TECHNICAL
+#         status.info("2/6 — Running Technical ")
+#         progress.progress(20)
+#         tech_raw = runner.run("technical", {"ticker": ticker, "start": start_date, "end": end_date})
+#         tech_norm = normalize_response(tech_raw)
+#         tech_payload = extract_payload(tech_norm, preferred_keys=("technical", "result"))
+#         if isinstance(tech_payload, dict) and "df" not in tech_payload and isinstance(price_df, pd.DataFrame):
+#             tech_payload["df"] = price_df
+
+#         latest_close = latest_close or safe_get_latest_close(tech_payload)
+
+#         # NEWS
+#         status.info("3/6 — Running News ")
+#         progress.progress(40)
+#         news_raw = runner.run("news", {"ticker": ticker, "start": start_date, "end": end_date})
+#         news_norm = normalize_response(news_raw)
+#         news_payload = extract_payload(news_norm)
+
+#         # RISK
+#         status.info("4/6 — Running Risk ")
+#         progress.progress(55)
+#         risk_input = {
+#             "ticker": ticker,
+#             "start": start_date,
+#             "end": end_date,
+#             "technical_confidence": tech_payload.get("confidence", 50) if isinstance(tech_payload, dict) else 50,
+#             "df": tech_payload.get("df", price_df),
+#             "current_price": latest_close
+#         }
+#         risk_raw = runner.run("risk", risk_input)
+#         risk_norm = normalize_response(risk_raw)
+#         risk_payload = extract_payload(risk_norm)
+
+#         # PORTFOLIO
+#         status.info("5/6 — Running Portfolio ")
+#         progress.progress(75)
+#         port_input = {
+#             "ticker": ticker,
+#             "current_price": latest_close,
+#             "technical_signal": tech_payload if isinstance(tech_payload, dict) else {},
+#             "risk_metrics": risk_payload if isinstance(risk_payload, dict) else {},
+#             "df": tech_payload.get("df", price_df)
+#         }
+#         port_raw = runner.run("portfolio", port_input)
+#         port_norm = normalize_response(port_raw)
+#         port_payload = extract_payload(port_norm)
+
+#         # DEBATE (optional)
+#         debate_payload = None
+#         if show_debate:
+#             status.info("6/6 — Running Debate Agent")
+#             progress.progress(85)
+#             debate_raw = runner.run("debate", {
+#                 "ticker": ticker,
+#                 "technical_result": tech_payload,
+#                 "risk_metrics": risk_payload,
+#                 "df": port_payload.get("df", tech_payload.get("df", price_df))
+#             })
+#             debate_norm = normalize_response(debate_raw)
+#             debate_payload = extract_payload(debate_norm)
+#             progress.progress(90)
+
+#         # MASTER
+#         status.info("Finalizing — Running Master Agent")
+#         master_raw = runner.run("master", {
+#             "ticker": ticker,
+#             "technical_result": tech_payload,
+#             "sentiment_result": debate_payload or news_payload,
+#             "risk_metrics": risk_payload,
+#             "portfolio_metrics": port_payload,
+#             "current_price": latest_close
+#         })
+#         master_norm = normalize_response(master_raw)
+#         # master can be nested under 'master' key or returned flat
+#         master_payload = master_norm.get("master") if isinstance(master_norm, dict) and "master" in master_norm else extract_payload(master_norm, preferred_keys=("master", "result"))
+
+#         progress.progress(100)
+#         status.empty()
+#         progress.empty()
+#         st.success("✅ Analysis Complete")
+
+#         # ---------- DISPLAY ----------
+#         tab_all, tab_master, tab_debate, tab_news = st.tabs(["All Agents", "Master", "Debate", "News"])
+
+#         with tab_all:
+#             col1, col2 = st.columns(2)
+#             with col1:
+#                 display_json_friendly("Technical ", tech_payload)
+#                 st.markdown("---")
+#                 display_json_friendly("Risk ", risk_payload)
+#             with col2:
+#                 display_json_friendly("Portfolio ", port_payload)
+#                 st.markdown("---")
+#                 if debate_payload:
+#                     display_json_friendly("Debate Agent", debate_payload)
+
+#         with tab_master:
+#             # Use the new clean display for Master Agent
+#             display_master_agent_analysis(master_payload)
+
+#         with tab_debate:
+#             if debate_payload:
+#                 display_json_friendly("Debate Output", debate_payload)
+#             else:
+#                 st.info("No debate output")
+
+#         with tab_news:
+#             if isinstance(news_payload, dict):
+#                 summaries = news_payload.get("summaries") or news_payload.get("articles") or []
+#                 if summaries:
+#                     for s in summaries[:10]:
+#                         if isinstance(s, dict):
+#                             title = s.get("title", s.get("headline", "No title"))
+#                             src = s.get("source", "unknown")
+#                             st.write(f"- {title} — {src}")
+#                         else:
+#                             st.write(f"- {s}")
+#                 else:
+#                     st.info("No news articles found")
+#             else:
+#                 st.write(news_payload)
+
+#         # Quick execution panel (simulated)
+#         st.markdown("---")
+#         if isinstance(master_payload, dict) and (master_payload.get("action") or master_payload.get("recommendation")):
+#             master_action = master_payload.get("action", master_payload.get("recommendation", "HOLD"))
+#             if master_action != "HOLD":
+#                 qty_default = int(port_payload.get("suggested_quantity", port_payload.get("quantity", 1)) if isinstance(port_payload, dict) else 1)
+#                 qty = st.number_input("Quantity", min_value=1, value=qty_default)
+#                 if st.button(f"Simulate {master_action}"):
+#                     st.success(f"Simulated {master_action} {qty} @ {latest_close:.2f}")
+#             else:
+#                 st.info("Master recommends HOLD")
+
+#     except Exception as e:
+#         logger.exception("Pipeline failure")
+#         st.error(f"Pipeline error: {e}")
+#         with st.expander("Trace"):
+#             import traceback
+#             st.code(traceback.format_exc())
+
 # trading_bot/ui/ai_agents.py
 import os
-import time
 from datetime import datetime, timedelta
 import logging
 import streamlit as st
 import pandas as pd
-from data.data_fetcher import fetch_data
 
+from data.data_fetcher import fetch_data  # kept for potential future use
 
+# Runner + factories (robust imports)
 from agent_runner import AgentRunner
-from agents.wrappers import create_wrapped_agents
+try:
+    from agents.wrappers import create_wrapped_agents
+except Exception:
+    create_wrapped_agents = None
+
+try:
+    from agents.inst_wrappers import create_inst_wrappers
+except Exception:
+    create_inst_wrappers = None
+
 from tools.toolbox import TOOLS
 from llm.llm_wrapper import LLM
 
@@ -860,42 +2256,38 @@ logger.setLevel(logging.INFO)
 # -------------------------
 def normalize_response(resp):
     """
-    Convert various possible agent responses into a plain dict.
-    Supports:
-     - dict (returned as-is)
-     - objects with .dict() (pydantic)
-     - objects with __dict__
-     - pandas DataFrame -> {'status':'OK','df': df}
-     - string -> {'status':'OK','text': str}
-     - None -> {'status':'ERROR', 'error': 'No response'}
+    Convert possible agent responses into a plain dict.
+    - dict -> returned as shallow copy
+    - pandas.DataFrame -> {'status':'OK','df': df}
+    - objects with .dict() -> use .dict()
+    - objects with __dict__ -> use vars()
+    - string/other -> {'status':'OK','text': str(resp)}
+    - None -> {'status':'ERROR', 'error': 'No response'}
     """
     try:
         if resp is None:
             return {"status": "ERROR", "error": "No response (None)"}
 
-        # If runner returns a wrapper dict like {"result": {...}} or {"technical": {...}}
         if isinstance(resp, dict):
-            # make a shallow copy to avoid mutating original
             return dict(resp)
 
-        # pandas DataFrame
         if isinstance(resp, pd.DataFrame):
             return {"status": "OK", "df": resp}
 
-        # pydantic or similar
+        # pydantic-style
         if hasattr(resp, "dict") and callable(getattr(resp, "dict")):
             try:
                 return {"status": "OK", **resp.dict()}
             except Exception:
-                return {"status": "OK", **(vars(resp) if hasattr(resp, "__dict__") else {"value": str(resp)})}
+                pass
 
-        # plain object with __dict__
         if hasattr(resp, "__dict__"):
-            return {"status": "OK", **vars(resp)}
+            try:
+                return {"status": "OK", **vars(resp)}
+            except Exception:
+                pass
 
-        # fallback to string
         return {"status": "OK", "text": str(resp)}
-
     except Exception as e:
         logger.exception("normalize_response failed")
         return {"status": "ERROR", "error": f"normalize_response failed: {e}"}
@@ -903,7 +2295,7 @@ def normalize_response(resp):
 
 def extract_payload(norm: dict, preferred_keys=("result", "technical", "master", "risk", "portfolio")):
     """
-    From a normalized dict, pick the nested payload under one of preferred_keys,
+    From a normalized dict, pick the nested payload under preferred_keys,
     else return the normalized dict itself.
     """
     if not isinstance(norm, dict):
@@ -912,7 +2304,7 @@ def extract_payload(norm: dict, preferred_keys=("result", "technical", "master",
     for k in preferred_keys:
         if k in norm and isinstance(norm[k], dict):
             return norm[k]
-    # sometimes agents return {'status':'OK', 'df': df}
+    # sometimes responses are {'status':'OK', 'df': df}
     if "df" in norm or "status" in norm:
         return norm
     return norm
@@ -921,7 +2313,7 @@ def extract_payload(norm: dict, preferred_keys=("result", "technical", "master",
 def display_json_friendly(label: str, payload, expand: bool = False):
     """
     Safely display payload in Streamlit:
-    - dict -> st.json
+    - dict -> st.json (with dataframe shown separately)
     - DataFrame -> st.dataframe
     - list -> st.write
     - string -> st.write
@@ -932,12 +2324,11 @@ def display_json_friendly(label: str, payload, expand: bool = False):
         return
 
     if isinstance(payload, dict):
-        # remove DataFrame before st.json
-        df = payload.pop("df", None)
+        # show dataframe preview if present but don't mutate original dict
+        df = payload.get("df", None)
         try:
-            st.json(payload)
+            st.json({k: v for k, v in payload.items() if k != "df"})
         except Exception:
-            # fallback: pretty print
             st.write(payload)
         if df is not None:
             if isinstance(df, pd.DataFrame):
@@ -953,51 +2344,189 @@ def display_json_friendly(label: str, payload, expand: bool = False):
         st.write(str(payload))
 
 
+def display_master_agent_analysis(master_payload: dict):
+    """
+    Clean, professional display for the new Master Agent
+    """
+    if not isinstance(master_payload, dict):
+        st.error("No master analysis available")
+        return
+
+    # Extract display data or use main payload
+    display_data = master_payload.get("display_data", {})
+    if not display_data:
+        display_data = {
+            "final_decision": master_payload.get("action", "HOLD"),
+            "confidence": master_payload.get("confidence", 50),
+            "reasoning": master_payload.get("reasoning", "No reasoning provided"),
+            "narrative": master_payload.get("narrative", "No analysis available"),
+            "quantity": master_payload.get("quantity", 0),
+            "stop_loss": master_payload.get("risk_management", {}).get("stop_loss"),
+            "take_profit": master_payload.get("risk_management", {}).get("take_profit"),
+            "current_price": master_payload.get("current_price", 0)
+        }
+
+    st.markdown("---")
+    
+    # Main Decision Card
+    col1, col2, col3 = st.columns(3)
+    
+    decision = display_data.get("final_decision", "HOLD")
+    confidence = display_data.get("confidence", 50)
+    
+    with col1:
+        if decision == "BUY":
+            st.success(f"## 🟢 {decision}")
+        elif decision == "SELL":
+            st.error(f"## 🔴 {decision}")  
+        else:
+            st.info(f"## ⚪ {decision}")
+            
+    with col2:
+        st.metric("Confidence", f"{confidence}%")
+        
+    with col3:
+        st.metric("Position Size", display_data.get("quantity", 0))
+    
+    # Current Price
+    current_price = display_data.get("current_price")
+    if current_price:
+        st.write(f"**Current Price:** ${current_price:.2f}")
+    
+    # Narrative (Main story)
+    st.markdown("### 📋 AI Analysis Summary")
+    narrative = display_data.get("narrative", "No analysis available")
+    st.info(narrative)
+    
+    # Risk Management
+    st.markdown("### 🛡️ Risk Management")
+    risk_col1, risk_col2 = st.columns(2)
+    
+    with risk_col1:
+        stop_loss = display_data.get("stop_loss")
+        if stop_loss:
+            st.metric("Stop Loss", f"${stop_loss:.2f}")
+        else:
+            st.write("Stop Loss: N/A")
+            
+    with risk_col2:
+        take_profit = display_data.get("take_profit") 
+        if take_profit:
+            st.metric("Take Profit", f"${take_profit:.2f}")
+        else:
+            st.write("Take Profit: N/A")
+    
+    # Signal Breakdown (expandable)
+    with st.expander("🔍 Signal Analysis Details"):
+        reasoning = display_data.get("reasoning", "No detailed reasoning")
+        st.write(f"**Decision Logic:** {reasoning}")
+        
+        # Show signal scores if available
+        signals = master_payload.get("signals", {})
+        if signals:
+            col1, col2 = st.columns(2)
+            with col1:
+                buy_score = signals.get("buy_score", 0)
+                st.metric("Buy Score", f"{buy_score:.1f}")
+            with col2:
+                sell_score = signals.get("sell_score", 0)
+                st.metric("Sell Score", f"{sell_score:.1f}")
+            
+            # Show arguments
+            buy_args = signals.get("buy_arguments", [])
+            sell_args = signals.get("sell_arguments", [])
+            
+            if buy_args:
+                st.write("**Bullish Factors:**")
+                for arg in buy_args:
+                    st.write(f"• {arg}")
+            
+            if sell_args:
+                st.write("**Bearish Factors:**")
+                for arg in sell_args:
+                    st.write(f"• {arg}")
+
+
 # -------------------------
-# Runner initialization
+# Runner initialization - UPDATED WITH FALLBACK
 # -------------------------
 def ensure_session_runner():
     """
-    Initialize AgentRunner + wrapped agents in session_state.
+    Initialize AgentRunner with guaranteed agent registration
     """
     if "agent_runner" not in st.session_state:
         runner = AgentRunner()
-        # create_wrapped_agents should accept tools & llm class (we instantiate LLM())
-        wrapped = create_wrapped_agents(tools=TOOLS, llm=LLM())
-        # register
-        for name, agent in wrapped.items():
-            runner.register(name, agent)
+        
+        # Force register core agents if empty (double safety)
+        if not runner.agents:
+            st.warning("🤖 No agents auto-registered, manually registering core agents...")
+            manual_register_core_agents(runner)
+        
         st.session_state.agent_runner = runner
-        st.session_state.wrapped_agents = list(wrapped.keys())
-        logger.info("AgentRunner initialized with agents: %s", st.session_state.wrapped_agents)
+        st.session_state.wrapped_agents = list(runner.agents.keys())
+        logger.info(f"✅ AgentRunner initialized with agents: {st.session_state.wrapped_agents}")
+    
     return st.session_state.agent_runner
+
+
+def manual_register_core_agents(runner):
+    """Manually register core agents as backup"""
+    try:
+        from agents.wrappers import (
+            TechnicalAgent, RiskAgent, PortfolioAgent, 
+            DebateAgent, MasterAgent, NewsAgent,
+            ProfessionalSentimentAgent
+        )
+        
+        core_agents = {
+            "technical": TechnicalAgent(tools=TOOLS, llm=LLM()),
+            "risk": RiskAgent(tools=TOOLS, llm=LLM()),
+            "portfolio": PortfolioAgent(tools=TOOLS, llm=LLM()),
+            "debate": DebateAgent(tools=TOOLS, llm=LLM()),
+            "master": MasterAgent(tools=TOOLS, llm=LLM()),
+            "news": NewsAgent(tools=TOOLS, llm=LLM()),
+            "sentiment": ProfessionalSentimentAgent(tools=TOOLS, llm=LLM()),
+        }
+        
+        for name, agent in core_agents.items():
+            runner.register(name, agent)
+            
+        logger.info(f"✅ Manually registered: {list(core_agents.keys())}")
+        
+    except Exception as e:
+        logger.error(f"❌ Manual registration failed: {e}")
+        st.error(f"Failed to register agents: {e}")
 
 
 def safe_get_latest_close(payload):
     """
-    Try multiple common shapes to extract latest close.
+    Extract latest close price from a variety of payload shapes.
     """
     try:
         if payload is None:
             return 0.0
-        # payload could be {'latest_close': x}
+
         if isinstance(payload, dict):
             for k in ("latest_close", "latest", "close", "price"):
-                if k in payload and (isinstance(payload[k], (int, float)) or (isinstance(payload[k], str) and payload[k].replace('.', '', 1).isdigit())):
-                    try:
-                        return float(payload[k])
-                    except Exception:
-                        pass
-            # payload may include df
+                if k in payload:
+                    v = payload[k]
+                    if isinstance(v, (int, float)):
+                        return float(v)
+                    if isinstance(v, str) and v.replace('.', '', 1).isdigit():
+                        try:
+                            return float(v)
+                        except Exception:
+                            pass
             if "df" in payload and isinstance(payload["df"], pd.DataFrame):
                 df = payload["df"]
                 if "Close" in df.columns and len(df) > 0:
                     return float(df["Close"].iloc[-1])
-        # if DataFrame
+
         if isinstance(payload, pd.DataFrame):
             df = payload
             if "Close" in df.columns and len(df) > 0:
                 return float(df["Close"].iloc[-1])
+
     except Exception:
         pass
     return 0.0
@@ -1007,8 +2536,8 @@ def safe_get_latest_close(payload):
 # Streamlit Page
 # -------------------------
 def show_ai_agents_page():
-    st.set_page_config(layout="wide", page_title="SMART-MARKET — Multi-Agent Analysis")
-    st.title("🤖 SMART-MARKET — Multi-Agent Analysis")
+    st.set_page_config(layout="wide", page_title="SMART-MARKET — Agent Analysis")
+    st.title("🤖 SMART-MARKET — Agent Analysis")
 
     runner = ensure_session_runner()
 
@@ -1023,7 +2552,7 @@ def show_ai_agents_page():
         show_debate = st.checkbox("Show Debate", value=True)
         run_btn = st.button("🚀 Analyze")
         st.markdown("---")
-        st.markdown("Agents:")
+        st.markdown("Available Agents:")
         st.write(", ".join(st.session_state.get("wrapped_agents", [])))
         if not groq_ready:
             st.warning("GROQ_API_KEY not configured. LLM features disabled.")
@@ -1056,7 +2585,6 @@ def show_ai_agents_page():
                 elif hasattr(price_res, "iloc"):
                     price_df = price_res
                 else:
-                    # log and continue; some tools return errors
                     logger.warning("fetch_price returned unexpected shape: %s", type(price_res))
             else:
                 logger.warning("fetch_price not available in TOOLS")
@@ -1068,27 +2596,25 @@ def show_ai_agents_page():
             latest_close = float(price_df["Close"].iloc[-1]) if "Close" in price_df.columns else 0.0
 
         # TECHNICAL
-        status.info("2/6 — Running Technical Agent")
+        status.info("2/6 — Running Technical ")
         progress.progress(20)
         tech_raw = runner.run("technical", {"ticker": ticker, "start": start_date, "end": end_date})
         tech_norm = normalize_response(tech_raw)
         tech_payload = extract_payload(tech_norm, preferred_keys=("technical", "result"))
-        # If agent returned df but not computed indicators, attach price_df
-        if "df" not in tech_payload and isinstance(price_df, pd.DataFrame):
+        if isinstance(tech_payload, dict) and "df" not in tech_payload and isinstance(price_df, pd.DataFrame):
             tech_payload["df"] = price_df
 
-        # ensure we have latest_close from technical if present
         latest_close = latest_close or safe_get_latest_close(tech_payload)
 
         # NEWS
-        status.info("3/6 — Running News Agent")
+        status.info("3/6 — Running News ")
         progress.progress(40)
         news_raw = runner.run("news", {"ticker": ticker, "start": start_date, "end": end_date})
         news_norm = normalize_response(news_raw)
         news_payload = extract_payload(news_norm)
 
         # RISK
-        status.info("4/6 — Running Risk Agent")
+        status.info("4/6 — Running Risk ")
         progress.progress(55)
         risk_input = {
             "ticker": ticker,
@@ -1103,7 +2629,7 @@ def show_ai_agents_page():
         risk_payload = extract_payload(risk_norm)
 
         # PORTFOLIO
-        status.info("5/6 — Running Portfolio Agent")
+        status.info("5/6 — Running Portfolio ")
         progress.progress(75)
         port_input = {
             "ticker": ticker,
@@ -1136,13 +2662,14 @@ def show_ai_agents_page():
         master_raw = runner.run("master", {
             "ticker": ticker,
             "technical_result": tech_payload,
-            "sentiment_result": news_payload,
+            "sentiment_result": debate_payload or news_payload,
             "risk_metrics": risk_payload,
             "portfolio_metrics": port_payload,
             "current_price": latest_close
         })
         master_norm = normalize_response(master_raw)
-        master_payload = extract_payload(master_norm, preferred_keys=("master", "result"))
+        # master can be nested under 'master' key or returned flat
+        master_payload = master_norm.get("master") if isinstance(master_norm, dict) and "master" in master_norm else extract_payload(master_norm, preferred_keys=("master", "result"))
 
         progress.progress(100)
         status.empty()
@@ -1155,30 +2682,22 @@ def show_ai_agents_page():
         with tab_all:
             col1, col2 = st.columns(2)
             with col1:
-                display_json_friendly("Technical Agent", tech_payload)
+                display_json_friendly("Technical ", tech_payload)
                 st.markdown("---")
-                display_json_friendly("Risk Agent", risk_payload)
+                display_json_friendly("Risk ", risk_payload)
             with col2:
-                display_json_friendly("Portfolio Agent", port_payload)
+                display_json_friendly("Portfolio ", port_payload)
                 st.markdown("---")
                 if debate_payload:
                     display_json_friendly("Debate Agent", debate_payload)
 
         with tab_master:
-            if isinstance(master_payload, dict):
-                action = master_payload.get("action", master_payload.get("recommendation", "HOLD"))
-                confidence = master_payload.get("confidence", master_payload.get("confidence_pct", 50))
-                st.metric("Action", action)
-                st.metric("Confidence", f"{confidence}%")
-                st.markdown("### Reasoning / Notes")
-                st.write(master_payload.get("reasoning", master_payload))
-            else:
-                st.info("No master decision available")
-                st.write(master_payload)
+            # Use the new clean display for Master Agent
+            display_master_agent_analysis(master_payload)
 
         with tab_debate:
             if debate_payload:
-                st.json(debate_payload)
+                display_json_friendly("Debate Output", debate_payload)
             else:
                 st.info("No debate output")
 
@@ -1187,7 +2706,6 @@ def show_ai_agents_page():
                 summaries = news_payload.get("summaries") or news_payload.get("articles") or []
                 if summaries:
                     for s in summaries[:10]:
-                        # pretty print if dict-like
                         if isinstance(s, dict):
                             title = s.get("title", s.get("headline", "No title"))
                             src = s.get("source", "unknown")

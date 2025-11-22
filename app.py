@@ -552,16 +552,16 @@ else:
     elif page == 'admin':
         show_admin_dashboard()
 
-    elif page == 'institutional':
-        if HAS_INST:
-            show_institutional_analysis()
-        else:
-            st.error("Institutional analysis page not found.")
+    # elif page == 'institutional':
+    #     if HAS_INST:
+    #         show_institutional_analysis()
+    #     else:
+    #         st.error("Institutional analysis page not found.")
 
-    elif page == 'education':
-        if HAS_EDU:
-            # Simple education loader
-            st.markdown("# 📚 Learn About the Agents")
-            st.info("Navigate the explanations inside the educational module.")
-        else:
-            st.error("Educational module missing.")
+    # elif page == 'education':
+    #     if HAS_EDU:
+    #         # Simple education loader
+    #         st.markdown("# 📚 Learn About the Agents")
+    #         st.info("Navigate the explanations inside the educational module.")
+    #     else:
+    #         st.error("Educational module missing.")

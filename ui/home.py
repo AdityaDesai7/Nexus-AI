@@ -45,7 +45,7 @@ def show_home_page():
         <div class='metric-card'>
             <h3 style='color:#e17055;'>🤖 AI Agents</h3>
             <p style='color:#b2bec3; margin-top:10px;'>
-                5 specialized AI agents working together to provide trading recommendations
+                 specialized AI agents working together to provide trading recommendations
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -106,11 +106,12 @@ def show_home_page():
         ### 3️⃣ AI Agent System (Optional)
         Our multi-agent system provides intelligent trading recommendations:
         
-        - **📊 Technical Agent**: Analyzes chart patterns and indicators
+        - **📊 Technical **: Analyzes chart patterns and indicators
         - **📰 Sentiment Agent**: Evaluates market sentiment and momentum
-        - **⚠️ Risk Agent**: Assesses volatility and risk metrics
-        - **💼 Portfolio Agent**: Optimizes position sizing
+        - **⚠️ Risk **: Assesses volatility and risk metrics
+        - **💼 Portfolio **: Optimizes position sizing
         - **🎯 Master Agent**: Synthesizes all recommendations
+        - ** Deate Agent**: Pros and cons of taking a trade            
         
         *Paper trading with ₹10,00,000 virtual capital*
         """)
@@ -144,9 +145,9 @@ def show_home_page():
     # Footer
     st.markdown("""
     <div style='text-align:center; color:#666; margin-top:60px; margin-bottom:20px;'>
-        <p>Built with ❤️ using Streamlit, yfinance, Groq AI, and Tavily</p>
+        <p>Built for profit and Education </p>
         <p style='font-size:0.9rem; margin-top:10px;'>
-            ⚠️ For educational purposes only. Not financial advice.
+            
         </p>
     </div>
     """, unsafe_allow_html=True)
