@@ -572,6 +572,7 @@ class AgentRunner:
 
         # Debug registration first
         self.debug_agent_registration()
+        self.registerAllAgents()
         
         # Try auto-registration first
         self.auto_register_agents()
@@ -627,6 +628,29 @@ class AgentRunner:
         except Exception as e:
             logger.error(f"Auto-registration failed: {e}")
 
+
+    def registerAllAgents(self):
+
+
+        from agents.wrappers import (
+            TechnicalAgent, RiskAgent, PortfolioAgent, 
+            DebateAgent, MasterAgent, NewsAgent,
+            ProfessionalSentimentAgent
+            )
+            
+        core_agents = {
+            "technical": TechnicalAgent(tools=self.tools, llm=self.llm),
+            "risk": RiskAgent(tools=self.tools, llm=self.llm),
+            "portfolio": PortfolioAgent(tools=self.tools, llm=self.llm),
+            "debate": DebateAgent(tools=self.tools, llm=self.llm),
+            "master": MasterAgent(tools=self.tools, llm=self.llm),
+            "news": NewsAgent(tools=self.tools, llm=self.llm),
+            "sentiment": ProfessionalSentimentAgent(tools=self.tools, llm=self.llm),
+        }
+        
+        for name, agent in core_agents.items():
+                self.register(name,agent)
+
     def register_core_agents(self):
         """Manually register core agents as fallback"""
         try:
@@ -667,6 +691,8 @@ class AgentRunner:
         self.agents[name] = agent
         logger.info(f"📋 Registered agent: {name}")
 
+
+
     # --------------------------------------------------------------
     # RUN ONE AGENT
     # --------------------------------------------------------------
@@ -677,7 +703,9 @@ class AgentRunner:
         """
         agent = self.agents.get(name)
         if not agent:
+            print(f"self.agents: {self.agents}")
             raise RuntimeError(f"Unknown agent: {name}")
+            
 
         logger.info(f"🚀 Running agent: {name}")
 
@@ -737,4 +765,7 @@ def test_wrapper_factory(self):
                     "error": str(e)
                 }
 
-        return outputs
+    
+    
+    
+    return outputs

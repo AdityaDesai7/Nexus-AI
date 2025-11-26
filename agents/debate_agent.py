@@ -351,15 +351,18 @@
 # trading_bot/agents/debate_agent.py
 # trading_bot/agents/debate_agent.py
 
+# trading_bot/agents/debate_agent.py
+from typing import Dict, Any, List, Tuple
+import pandas as pd
+import numpy as np
+import logging
+from datetime import datetime
 
-
-from typing import Dict, Any
+logger = logging.getLogger(__name__)
 
 class DebateAgent:
     """
-    Hybrid Debate Agent:
-    - Logic scoring (safe, numeric)
-    - LLM summary using Groq (safe wrapper)
+    Enhanced Debate Agent with comprehensive scoring using Technical and Risk analysis
     """
 
     def __init__(self, llm=None):
@@ -367,152 +370,448 @@ class DebateAgent:
 
     @staticmethod
     def _extract_float(d, key, default=0.0):
+        """Safely extract float values from nested dictionaries"""
         try:
-            return float(d.get(key, default))
-        except:
+            if isinstance(d, dict):
+                return float(d.get(key, default))
+            return default
+        except (TypeError, ValueError):
             return default
 
-    # -------------------------- LOGIC SCORING --------------------------
-    def _score_logic(self, ticker, technical_result, risk_metrics, price_df, sentiment_score):
-        bull = 0
-        bear = 0
+    def _extract_technical_signals(self, technical_result: Dict) -> Tuple[float, List[str]]:
+        """Extract and score technical analysis signals"""
+        bull_score = 0.0
+        bear_score = 0.0
         bull_args = []
         bear_args = []
 
-        # Technical analysis
-        if technical_result:
-            action = str(technical_result.get("action", "")).upper()
-            conf = float(technical_result.get("confidence", 50))
+        if not technical_result:
+            return bull_score, bear_score, bull_args, bear_args
+
+        try:
+            # RSI Analysis
             rsi = self._extract_float(technical_result, "rsi", 50)
+            if rsi < 30:
+                bull_score += 20
+                bull_args.append(f"RSI oversold ({rsi:.1f}) - strong buy signal")
+            elif rsi < 40:
+                bull_score += 10
+                bull_args.append(f"RSI near oversold ({rsi:.1f}) - potential bounce")
+            elif rsi > 70:
+                bear_score += 20
+                bear_args.append(f"RSI overbought ({rsi:.1f}) - strong sell signal")
+            elif rsi > 60:
+                bear_score += 10
+                bear_args.append(f"RSI near overbought ({rsi:.1f}) - potential pullback")
+
+            # MACD Analysis
             macd = self._extract_float(technical_result, "macd", 0)
             macd_signal = self._extract_float(technical_result, "macd_signal", 0)
+            macd_hist = self._extract_float(technical_result, "macd_hist", 0)
+            
+            if macd > macd_signal and macd > 0:
+                bull_score += 15
+                bull_args.append("MACD bullish and above zero - strong uptrend")
+            elif macd > macd_signal:
+                bull_score += 8
+                bull_args.append("MACD turning bullish - potential uptrend")
+            elif macd < macd_signal and macd < 0:
+                bear_score += 15
+                bear_args.append("MACD bearish and below zero - strong downtrend")
+            elif macd < macd_signal:
+                bear_score += 8
+                bear_args.append("MACD turning bearish - potential downtrend")
 
+            # Bollinger Bands
+            current_price = self._extract_float(technical_result, "latest_close", 0)
+            bb_upper = self._extract_float(technical_result, "bollinger_upper", 0)
+            bb_lower = self._extract_float(technical_result, "bollinger_lower", 0)
+            
+            if current_price and bb_lower and bb_upper:
+                if current_price < bb_lower:
+                    bull_score += 12
+                    bull_args.append(f"Price below lower Bollinger Band ({bb_lower:.2f}) - oversold")
+                elif current_price > bb_upper:
+                    bear_score += 12
+                    bear_args.append(f"Price above upper Bollinger Band ({bb_upper:.2f}) - overbought")
+                elif current_price > (bb_upper + bb_lower) / 2:
+                    bull_score += 5
+                    bull_args.append("Price in upper Bollinger Band half - bullish bias")
+                else:
+                    bear_score += 5
+                    bear_args.append("Price in lower Bollinger Band half - bearish bias")
+
+            # Support/Resistance
+            support = self._extract_float(technical_result, "support", 0)
+            resistance = self._extract_float(technical_result, "resistance", 0)
+            
+            if current_price and support and resistance:
+                support_distance = abs(current_price - support) / current_price
+                resistance_distance = abs(resistance - current_price) / current_price
+                
+                if support_distance < 0.02:  # Within 2% of support
+                    bull_score += 15
+                    bull_args.append(f"Price near strong support (${support:.2f})")
+                elif support_distance < 0.05:  # Within 5% of support
+                    bull_score += 8
+                    bull_args.append(f"Price approaching support (${support:.2f})")
+                    
+                if resistance_distance < 0.02:  # Within 2% of resistance
+                    bear_score += 15
+                    bear_args.append(f"Price near strong resistance (${resistance:.2f})")
+                elif resistance_distance < 0.05:  # Within 5% of resistance
+                    bear_score += 8
+                    bear_args.append(f"Price approaching resistance (${resistance:.2f})")
+
+            # Technical Action and Confidence
+            action = technical_result.get("action", "HOLD")
+            confidence = self._extract_float(technical_result, "confidence", 50)
+            
             if action == "BUY":
-                bull += conf * 0.6
-                bull_args.append(f"Technical BUY signal ({conf}%)")
+                bull_score += confidence * 0.8  # 80% weight to technical action
+                bull_args.append(f"Technical BUY signal ({confidence:.1f}% confidence)")
             elif action == "SELL":
-                bear += conf * 0.6
-                bear_args.append(f"Technical SELL signal ({conf}%)")
+                bear_score += confidence * 0.8
+                bear_args.append(f"Technical SELL signal ({confidence:.1f}% confidence)")
 
-            if rsi < 30:
-                bull += 10
-                bull_args.append(f"RSI oversold ({rsi})")
-            if rsi > 70:
-                bear += 10
-                bear_args.append(f"RSI overbought ({rsi})")
+            # Additional signals
+            signals = technical_result.get("signals", [])
+            for signal in signals:
+                signal_str = str(signal).upper()
+                if any(word in signal_str for word in ["BULL", "BUY", "OVERSOLD", "STRONG"]):
+                    bull_score += 5
+                    bull_args.append(f"Technical indicator: {signal}")
+                elif any(word in signal_str for word in ["BEAR", "SELL", "OVERBOUGHT", "WEAK"]):
+                    bear_score += 5
+                    bear_args.append(f"Technical indicator: {signal}")
 
-            if macd > macd_signal:
-                bull += 8
-                bull_args.append("MACD bullish")
-            if macd < macd_signal:
-                bear += 8
-                bear_args.append("MACD bearish")
+        except Exception as e:
+            logger.error(f"Error processing technical signals: {e}")
 
-        # Risk scoring
-        if risk_metrics:
-            rl = risk_metrics.get("risk_level", "MEDIUM")
-            if rl in ("HIGH", "VERY_HIGH"):
-                bear += 20
-                bear_args.append(f"High risk level: {rl}")
-            else:
-                bull += 5
-                bull_args.append(f"Risk acceptable: {rl}")
+        return bull_score, bear_score, bull_args, bear_args
 
-        # Sentiment
-        if sentiment_score >= 60:
-            bull += 8
-            bull_args.append(f"Positive sentiment ({sentiment_score})")
-        elif sentiment_score <= 40:
-            bear += 8
-            bear_args.append(f"Negative sentiment ({sentiment_score})")
+    def _extract_risk_signals(self, risk_metrics: Dict, current_price: float) -> Tuple[float, List[str]]:
+        """Extract and score risk analysis signals"""
+        bull_score = 0.0
+        bear_score = 0.0
+        bull_args = []
+        bear_args = []
 
-        # Support/resistance
+        if not risk_metrics:
+            return bull_score, bear_score, bull_args, bear_args
+
         try:
-            if price_df is not None and len(price_df) > 0:
-                current = float(price_df["Close"].iloc[-1])
-                sup = risk_metrics.get("support")
-                res = risk_metrics.get("resistance")
+            # Risk Level Analysis
+            risk_level = risk_metrics.get("risk_level", "MEDIUM")
+            volatility = self._extract_float(risk_metrics, "volatility", 0)
+            position_size = self._extract_float(risk_metrics, "position_size", 0)
+            sharpe_ratio = self._extract_float(risk_metrics, "sharpe_ratio", 0)
 
-                if sup and current - float(sup) < current * 0.15:
-                    bull += 5
-                    bull_args.append("Price near support")
+            # Risk Level Scoring
+            risk_level_scores = {
+                "VERY_LOW": (15, 0),
+                "LOW": (10, 0),
+                "MEDIUM": (5, 5),
+                "HIGH": (0, 10),
+                "VERY_HIGH": (0, 15)
+            }
+            
+            bull_risk, bear_risk = risk_level_scores.get(risk_level, (5, 5))
+            bull_score += bull_risk
+            bear_score += bear_risk
+            
+            if bull_risk > bear_risk:
+                bull_args.append(f"Favorable risk level: {risk_level}")
+            else:
+                bear_args.append(f"Elevated risk level: {risk_level}")
 
-                if res and float(res) - current < current * 0.10:
-                    bear += 5
-                    bear_args.append("Price near resistance")
-        except:
-            pass
+            # Volatility Analysis
+            if volatility > 0.35:  # Very high volatility
+                bear_score += 12
+                bear_args.append(f"Very high volatility ({volatility:.1%}) - increased risk")
+            elif volatility > 0.25:  # High volatility
+                bear_score += 8
+                bear_args.append(f"High volatility ({volatility:.1%}) - caution advised")
+            elif volatility < 0.15:  # Low volatility
+                bull_score += 8
+                bull_args.append(f"Low volatility ({volatility:.1%}) - stable conditions")
+            elif volatility < 0.10:  # Very low volatility
+                bull_score += 12
+                bull_args.append(f"Very low volatility ({volatility:.1%}) - excellent conditions")
 
-        total = bull + bear
-        bull_pct = (bull / total) * 100 if total else 50
-        bear_pct = (bear / total) * 100 if total else 50
+            # Position Size Analysis
+            if position_size > 0.08:  # Large position size indicates confidence
+                bull_score += 10
+                bull_args.append(f"Large recommended position ({position_size:.1%}) - high conviction")
+            elif position_size < 0.02:  # Small position size indicates caution
+                bear_score += 5
+                bear_args.append(f"Small recommended position ({position_size:.1%}) - low conviction")
 
-        return bull, bear, bull_args, bear_args, bull_pct, bear_pct
+            # Sharpe Ratio Analysis
+            if sharpe_ratio > 1.0:
+                bull_score += 10
+                bull_args.append(f"Excellent risk-adjusted returns (Sharpe: {sharpe_ratio:.2f})")
+            elif sharpe_ratio > 0.5:
+                bull_score += 5
+                bull_args.append(f"Good risk-adjusted returns (Sharpe: {sharpe_ratio:.2f})")
+            elif sharpe_ratio < -0.5:
+                bear_score += 10
+                bear_args.append(f"Poor risk-adjusted returns (Sharpe: {sharpe_ratio:.2f})")
 
-    # -------------------------- LLM SUMMARY --------------------------
-    def _llm_summary(self, ticker, bull_args, bear_args, bull_strength, bear_strength, consensus_action, consensus_conf):
+            # Stop Loss and Take Profit Analysis
+            stop_loss = self._extract_float(risk_metrics, "stop_loss_price", 0)
+            take_profit = self._extract_float(risk_metrics, "take_profit_price", 0)
+            
+            if current_price and stop_loss and take_profit:
+                stop_loss_pct = abs(current_price - stop_loss) / current_price
+                take_profit_pct = abs(take_profit - current_price) / current_price
+                risk_reward_ratio = take_profit_pct / stop_loss_pct if stop_loss_pct > 0 else 0
+                
+                if risk_reward_ratio > 2.0:
+                    bull_score += 8
+                    bull_args.append(f"Favorable risk-reward ratio ({risk_reward_ratio:.1f}:1)")
+                elif risk_reward_ratio < 1.0:
+                    bear_score += 8
+                    bear_args.append(f"Poor risk-reward ratio ({risk_reward_ratio:.1f}:1)")
+
+        except Exception as e:
+            logger.error(f"Error processing risk signals: {e}")
+
+        return bull_score, bear_score, bull_args, bear_args
+
+    def _calculate_price_action_signals(self, price_df: pd.DataFrame, current_price: float) -> Tuple[float, List[str]]:
+        """Calculate price action and trend signals"""
+        bull_score = 0.0
+        bear_score = 0.0
+        bull_args = []
+        bear_args = []
+
+        if price_df is None or len(price_df) < 20:
+            return bull_score, bear_score, bull_args, bear_args
+
+        try:
+            close_prices = price_df["Close"].astype(float)
+            
+            # Moving Average Analysis
+            if len(close_prices) >= 50:
+                sma_20 = close_prices.tail(20).mean()
+                sma_50 = close_prices.tail(50).mean()
+                
+                if current_price > sma_20 > sma_50:
+                    bull_score += 15
+                    bull_args.append("Strong uptrend: price above rising moving averages")
+                elif current_price < sma_20 < sma_50:
+                    bear_score += 15
+                    bear_args.append("Strong downtrend: price below falling moving averages")
+                elif current_price > sma_20 and sma_20 > sma_50:
+                    bull_score += 8
+                    bull_args.append("Price in established uptrend")
+                elif current_price < sma_20 and sma_20 < sma_50:
+                    bear_score += 8
+                    bear_args.append("Price in established downtrend")
+
+            # Recent momentum (5-day vs 20-day performance)
+            if len(close_prices) >= 20:
+                recent_5d = (current_price - close_prices.iloc[-5]) / close_prices.iloc[-5]
+                recent_20d = (current_price - close_prices.iloc[-20]) / close_prices.iloc[-20]
+                
+                if recent_5d > 0.02 and recent_5d > recent_20d:  # Strong recent momentum
+                    bull_score += 10
+                    bull_args.append(f"Strong recent momentum (+{recent_5d:.1%} in 5 days)")
+                elif recent_5d < -0.02 and recent_5d < recent_20d:  # Weak recent momentum
+                    bear_score += 10
+                    bear_args.append(f"Weak recent momentum ({recent_5d:.1%} in 5 days)")
+
+            # Volume analysis (if available)
+            if "Volume" in price_df.columns:
+                volume = price_df["Volume"].astype(float)
+                if len(volume) >= 10:
+                    avg_volume = volume.tail(10).mean()
+                    current_volume = volume.iloc[-1]
+                    if current_volume > avg_volume * 1.5 and current_price > close_prices.iloc[-2]:
+                        bull_score += 8
+                        bull_args.append("High volume on up move - bullish confirmation")
+                    elif current_volume > avg_volume * 1.5 and current_price < close_prices.iloc[-2]:
+                        bear_score += 8
+                        bear_args.append("High volume on down move - bearish confirmation")
+
+        except Exception as e:
+            logger.error(f"Error calculating price action signals: {e}")
+
+        return bull_score, bear_score, bull_args, bear_args
+
+    def _llm_summary(self, ticker: str, bull_args: List[str], bear_args: List[str], 
+                    bull_strength: float, bear_strength: float, 
+                    consensus_action: str, consensus_conf: float) -> str:
+        """Generate LLM summary with fallback"""
         if not self.llm:
-            return "LLM unavailable — logic summary only."
+            return self._create_basic_summary(ticker, bull_args, bear_args, bull_strength, bear_strength, consensus_action, consensus_conf)
 
         prompt = f"""
-You are a professional financial analyst.
+You are a professional financial analyst providing a balanced debate summary.
 
 Ticker: {ticker}
 
-Bull Case:
-{bull_args}
+BULL CASE (Strength: {bull_strength:.1f}):
+{chr(10).join(f'• {arg}' for arg in bull_args)}
 
-Bear Case:
-{bear_args}
+BEAR CASE (Strength: {bear_strength:.1f}):
+{chr(10).join(f'• {arg}' for arg in bear_args)}
 
-Bull Strength: {bull_strength}
-Bear Strength: {bear_strength}
+CONSENSUS: {consensus_action} with {consensus_conf:.1f}% confidence
 
-Consensus Action: {consensus_action}
-Consensus Confidence: {consensus_conf}%
+Write a comprehensive 150-200 word analysis that:
+1. Summarizes the key bullish and bearish arguments
+2. Explains the consensus recommendation
+3. Highlights the most compelling evidence from both sides
+4. Maintains professional, balanced tone
 
-Write a balanced 150–200 word debate summary.
-DO NOT invent numbers. Use ONLY the arguments provided.
+Use ONLY the information provided above. Do not invent additional data.
 """
 
         try:
             result = self.llm.ask(prompt)
+            # Check if result is an error message
+            if result.startswith("[LLM_ERROR]"):
+                return self._create_basic_summary(ticker, bull_args, bear_args, bull_strength, bear_strength, consensus_action, consensus_conf)
             return str(result)
-        except:
-            return "LLM failed — fallback to logic-only summary."
+        except Exception as e:
+            logger.warning(f"LLM summary failed: {e}")
+            return self._create_basic_summary(ticker, bull_args, bear_args, bull_strength, bear_strength, consensus_action, consensus_conf)
 
-    # -------------------------- PUBLIC METHOD --------------------------
-    def debate(self, ticker: str, technical_result: Dict, risk_metrics: Dict, price_data=None, sentiment_score: float = 50.0):
+    def _create_basic_summary(self, ticker: str, bull_args: List[str], bear_args: List[str],
+                             bull_strength: float, bear_strength: float,
+                             consensus_action: str, consensus_conf: float) -> str:
+        """Create detailed fallback summary without LLM"""
+        summary = f"COMPREHENSIVE ANALYSIS FOR {ticker.upper()}\n\n"
+        
+        summary += "BULLISH FACTORS:\n"
+        if bull_args:
+            for i, arg in enumerate(bull_args[:5], 1):
+                summary += f"{i}. {arg}\n"
+        else:
+            summary += "No strong bullish signals detected\n"
+        
+        summary += f"\nBEARISH FACTORS:\n"
+        if bear_args:
+            for i, arg in enumerate(bear_args[:5], 1):
+                summary += f"{i}. {arg}\n"
+        else:
+            summary += "No strong bearish signals detected\n"
+        
+        summary += f"\nSTRENGTH ANALYSIS:\n"
+        summary += f"Bull Case Strength: {bull_strength:.1f}\n"
+        summary += f"Bear Case Strength: {bear_strength:.1f}\n"
+        
+        summary += f"\nFINAL ASSESSMENT:\n"
+        if consensus_action == "BUY":
+            summary += f"STRONG BUY RECOMMENDATION with {consensus_conf:.1f}% confidence\n"
+            summary += "Bullish factors significantly outweigh bearish concerns"
+        elif consensus_action == "SELL":
+            summary += f"STRONG SELL RECOMMENDATION with {consensus_conf:.1f}% confidence\n"
+            summary += "Bearish factors significantly outweigh bullish arguments"
+        else:
+            summary += f"NEUTRAL/HOLD POSITION with {consensus_conf:.1f}% confidence\n"
+            summary += "Market signals are mixed with no clear directional bias"
+        
+        return summary
 
+    def debate(self, ticker: str, technical_result: Dict, risk_metrics: Dict, 
+               price_data=None, sentiment_score: float = 50.0) -> Dict[str, Any]:
+        """
+        Main debate method that integrates technical, risk, and price analysis
+        """
+        # Extract price data
         price_df = price_data.get("df") if isinstance(price_data, dict) else price_data
+        current_price = self._extract_float(technical_result, "latest_close", 0)
 
-        bull, bear, bull_args, bear_args, bull_pct, bear_pct = \
-            self._score_logic(ticker, technical_result, risk_metrics, price_df, sentiment_score)
+        # Get signals from all analysis types
+        tech_bull, tech_bear, tech_bull_args, tech_bear_args = self._extract_technical_signals(technical_result)
+        risk_bull, risk_bear, risk_bull_args, risk_bear_args = self._extract_risk_signals(risk_metrics, current_price)
+        price_bull, price_bear, price_bull_args, price_bear_args = self._calculate_price_action_signals(price_df, current_price)
 
-        # Consensus logic
-        if bull - bear > 15:
+        # Combine all signals
+        total_bull = tech_bull + risk_bull + price_bull
+        total_bear = tech_bear + risk_bear + price_bear
+        
+        all_bull_args = tech_bull_args + risk_bull_args + price_bull_args
+        all_bear_args = tech_bear_args + risk_bear_args + price_bear_args
+
+        # Add sentiment if available
+        if sentiment_score >= 70:
+            total_bull += 10
+            all_bull_args.append(f"Very positive market sentiment ({sentiment_score})")
+        elif sentiment_score >= 60:
+            total_bull += 5
+            all_bull_args.append(f"Positive market sentiment ({sentiment_score})")
+        elif sentiment_score <= 30:
+            total_bear += 10
+            all_bear_args.append(f"Very negative market sentiment ({sentiment_score})")
+        elif sentiment_score <= 40:
+            total_bear += 5
+            all_bear_args.append(f"Negative market sentiment ({sentiment_score})")
+
+        # Calculate consensus
+        total_strength = total_bull + total_bear
+        bull_pct = (total_bull / total_strength) * 100 if total_strength > 0 else 50
+        bear_pct = (total_bear / total_strength) * 100 if total_strength > 0 else 50
+
+        # Determine consensus action and confidence
+        strength_diff = total_bull - total_bear
+        
+        if strength_diff > 25:
             action = "BUY"
-            conf = min(90, 50 + (bull - bear) / 2)
-        elif bear - bull > 15:
+            confidence = min(90, 60 + (strength_diff - 25) / 2)
+        elif strength_diff > 10:
+            action = "BUY"
+            confidence = min(80, 55 + strength_diff / 2)
+        elif strength_diff < -25:
+            action = "SELL" 
+            confidence = min(90, 60 + abs(strength_diff + 25) / 2)
+        elif strength_diff < -10:
             action = "SELL"
-            conf = min(90, 50 + (bear - bull) / 2)
+            confidence = min(80, 55 + abs(strength_diff) / 2)
         else:
             action = "HOLD"
-            conf = 50
+            confidence = max(40, 50 - abs(strength_diff) / 2)
 
+        # Generate narrative
         narrative = self._llm_summary(
-            ticker, bull_args, bear_args, round(bull, 1), round(bear, 1), action, round(conf, 1)
+            ticker, all_bull_args, all_bear_args, total_bull, total_bear, action, confidence
         )
 
         return {
             "ticker": ticker,
-            "bull_case": {"arguments": bull_args, "strength": round(bull, 1)},
-            "bear_case": {"arguments": bear_args, "strength": round(bear, 1)},
+            "analysis_timestamp": datetime.now().isoformat(),
+            "bull_case": {
+                "arguments": all_bull_args,
+                "strength": round(total_bull, 1),
+                "components": {
+                    "technical": round(tech_bull, 1),
+                    "risk": round(risk_bull, 1),
+                    "price_action": round(price_bull, 1)
+                }
+            },
+            "bear_case": {
+                "arguments": all_bear_args,
+                "strength": round(total_bear, 1),
+                "components": {
+                    "technical": round(tech_bear, 1),
+                    "risk": round(risk_bear, 1),
+                    "price_action": round(price_bear, 1)
+                }
+            },
             "consensus": {
                 "action": action,
-                "confidence": round(conf, 1),
+                "confidence": round(confidence, 1),
                 "bull_pct": round(bull_pct, 1),
-                "bear_pct": round(bear_pct, 1)
+                "bear_pct": round(bear_pct, 1),
+                "strength_difference": round(strength_diff, 1)
             },
-            "narrative": narrative
+            "narrative": narrative,
+            "metadata": {
+                "technical_indicators_used": len(tech_bull_args) + len(tech_bear_args),
+                "risk_factors_considered": len(risk_bull_args) + len(risk_bear_args),
+                "price_signals_evaluated": len(price_bull_args) + len(price_bear_args)
+            }
         }
